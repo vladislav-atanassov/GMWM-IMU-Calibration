@@ -1,0 +1,45 @@
+# Personal files
+docs/*
+
+# Build output (CMake presets, per-core builds, CubeIDE)
+build/
+Debug/
+Release/
+*.o
+*.obj
+*.d
+*.su
+*.cyclo
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# Toolchain / indexer caches
+.cache/
+compile_commands.json
+
+# STM32CubeMX backups
+Backup/
+*.ioc.bak
+
+# VS Code: keep shared debug/build config only
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# MATLAB
+*.asv
+*.m~
+*.autosave
+*.mex*
+*.slxc
+slprj/
+codegen/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
