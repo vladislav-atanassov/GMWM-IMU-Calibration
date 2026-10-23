@@ -16,16 +16,17 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #define SENSOR_EMULATOR_CHANNELS 2U /* per frame: clean, noisy */
 
 typedef struct
 {
-  const uint16_t *frames; /* n_frames x [clean, noisy] 16-bit ADC codes */
-  uint32_t n_frames;
-  uint32_t seq;           /* block number since start; a gap means blocks were skipped */
+    const uint16_t *frames; /* n_frames x [clean, noisy] 16-bit ADC codes */
+    uint32_t        n_frames;
+    uint32_t        seq; /* block number since start; a gap means blocks were skipped */
 } sensor_emulator_block_t;
 
 /* Sets TIM6 to EMULATOR_FS_HZ, starts the DAC and ADC, then the timer */

@@ -17,7 +17,8 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #define STREAM_MAGIC 0xC0DEC0DEU

@@ -13,15 +13,15 @@
 
 void app_start(void)
 {
-  sensor_emulator_start();
+    sensor_emulator_start();
 }
 
 void app_poll(void)
 {
-  sensor_emulator_block_t block;
-  if (sensor_emulator_get_block(&block))
-  {
-    stream_send(STREAM_SRC_EMULATOR, block.seq, block.frames,
-                (uint16_t)(block.n_frames * SENSOR_EMULATOR_CHANNELS * sizeof(uint16_t)));
-  }
+    sensor_emulator_block_t block;
+    if (sensor_emulator_get_block(&block))
+    {
+        stream_send(STREAM_SRC_EMULATOR, block.seq, block.frames,
+                    (uint16_t) (block.n_frames * SENSOR_EMULATOR_CHANNELS * sizeof(uint16_t)));
+    }
 }

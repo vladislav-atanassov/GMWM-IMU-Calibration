@@ -14,7 +14,8 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #define SIGNAL_GEN_DAC_MAX 4095U /* 12-bit DAC full scale */
@@ -25,24 +26,24 @@ extern "C" {
 
 typedef struct
 {
-  float fs_hz;     /* sample rate = DAC trigger frequency */
-  float offset;    /* DC level */
-  float amplitude; /* sine amplitude, 0 for a constant level */
-  float freq_hz;   /* sine frequency, must be below fs_hz / 2 */
-  uint32_t noise;  /* SIGNAL_GEN_NOISE_* flags */
-  float white_std; /* white noise standard deviation */
-  uint32_t seed;   /* the same seed reproduces the same noise sequence */
+    float    fs_hz;     /* sample rate = DAC trigger frequency */
+    float    offset;    /* DC level */
+    float    amplitude; /* sine amplitude, 0 for a constant level */
+    float    freq_hz;   /* sine frequency, must be below fs_hz / 2 */
+    uint32_t noise;     /* SIGNAL_GEN_NOISE_* flags */
+    float    white_std; /* white noise standard deviation */
+    uint32_t seed;      /* the same seed reproduces the same noise sequence */
 } signal_gen_config_t;
 
 typedef struct
 {
-  signal_gen_config_t cfg;
-  uint32_t phase;     /* sine phase, one full turn = 2^32 */
-  uint32_t phase_inc;
-  uint64_t rng;       /* PCG32 state */
-  float spare;        /* second Box-Muller output, used on the next call */
-  bool has_spare;
-  uint32_t clipped;   /* samples clipped to 0..SIGNAL_GEN_DAC_MAX since init */
+    signal_gen_config_t cfg;
+    uint32_t            phase; /* sine phase, one full turn = 2^32 */
+    uint32_t            phase_inc;
+    uint64_t            rng;   /* PCG32 state */
+    float               spare; /* second Box-Muller output, used on the next call */
+    bool                has_spare;
+    uint32_t            clipped; /* samples clipped to 0..SIGNAL_GEN_DAC_MAX since init */
 } signal_gen_t;
 
 /* Returns false, leaving sg untouched, if cfg is invalid: fs_hz <= 0,

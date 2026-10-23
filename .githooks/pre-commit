@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+# Block the commit when staged C sources under App/ do not match .clang-format.
+#
+# Enable once per clone:
+#     git config core.hooksPath .githooks
+#
+# clang-format is $CLANG_FORMAT, else `git config hooks.clangFormat`, else the one on PATH.
+# It must be version 21 or newer (.clang-format uses "Language: C"). Use the same major
+# version as clangd so formatting in the editor and this check agree.
+
+app_dir=firmware/GMWM-IMU-Calibration/CM7/App
+
+clang_format=${CLANG_FORMAT:-$(git config hooks.clangFormat)}
+clang_format=${clang_format:-clang-format}
+
+if ! command -v "$clang_format" >/dev/null 2>&1; then
+    echo "pre-commit: clang-format not found: $clang_format" >&2
+    echo "Point the hook at it with:  git config hooks.clangFormat <path-to-clang-format>" >&2
+    exit 1
+fi
+
+# Added, copied, modified or renamed; a deleted file has nothing to check
+files=$(git diff --cached --name-only --diff-filter=ACMR -- "$app_dir/*.c" "$app_dir/*.h")
+[ -n "$files" ] || exit 0
+
+# An unreadable config would otherwise show up as every file being unformatted
+if ! "$clang_format" --dump-config --assume-filename="$app_dir/app.c" >/dev/null; then
+    echo "pre-commit: $("$clang_format" --version) cannot load .clang-format (needs 21 or newer)" >&2
+    exit 1
+fi
+
+# Check the staged blob, not the working tree, so a partially staged file is judged on
+# what is actually being committed
+unformatted=$(printf '%s\n' "$files" | while IFS= read -r f; do
+    git cat-file blob ":$f" | "$clang_format" --assume-filename="$f" --dry-run --Werror >/dev/null 2>&1 ||
+        printf '%s\n' "$f"
+done)
+[ -n "$unformatted" ] || exit 0
+
+file_list=$(printf '%s\n' "$unformatted" | tr '\n' ' ')
+{
+    echo "pre-commit: staged files under $app_dir/ are not formatted per .clang-format:"
+    printf '%s\n' "$unformatted" | sed 's/^/    /'
+    echo
+    echo "Format and restage them, then commit again:"
+    echo "    $clang_format -i $file_list"
+    echo "    git add $file_list"
+} >&2
+exit 1

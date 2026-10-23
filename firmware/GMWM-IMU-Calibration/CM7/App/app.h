@@ -8,7 +8,8 @@
 #define APP_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* Call once, after the CubeMX MX_*_Init() functions */
