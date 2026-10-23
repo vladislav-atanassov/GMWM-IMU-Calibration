@@ -20,6 +20,10 @@ Release/
 *.exe
 **/test/signal_gen_test
 
+# Python (tools/gmwm, pip install -e .)
+__pycache__/
+*.egg-info/
+
 # Toolchain / indexer caches
 .cache/
 compile_commands.json

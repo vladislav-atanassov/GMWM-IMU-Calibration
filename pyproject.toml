@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gmwm"
+version = "0.1.0"
+description = "GMWM build, clean, flash, and monitor CLI"
+requires-python = ">=3.10"
+dependencies = ["pyserial>=3.5"]
+
+[project.scripts]
+gmwm = "gmwm.__main__:main"
+
+[tool.setuptools]
+package-dir = {"gmwm" = "tools/gmwm"}
+packages = ["gmwm"]
