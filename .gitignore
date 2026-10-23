@@ -16,6 +16,10 @@ Release/
 *.map
 *.list
 
+# Host-side test binaries
+*.exe
+**/test/signal_gen_test
+
 # Toolchain / indexer caches
 .cache/
 compile_commands.json
