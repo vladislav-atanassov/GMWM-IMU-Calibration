@@ -50,6 +50,11 @@
 #endif
 #endif /* DUAL_CORE_BOOT_SYNC_SEQUENCE */
 
+#define HALF_FRAMES 256U                    /* frames per half-buffer (256 ms at 1 kHz) */
+#define DAC_LEN     (2U * HALF_FRAMES)      /* samples per DAC channel */
+#define ADC_LEN     (2U * HALF_FRAMES * 2U) /* 2 halves x HALF_FRAMES x 2 channels */
+#define SYNC_MAGIC  0xC0DEC0DEU
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -61,17 +66,37 @@
 
 /* USER CODE BEGIN PV */
 
+/* DMA buffers live in AXI SRAM (.dma_buffer): DMA1 cannot reach DTCM */
+static uint16_t dac_clean[DAC_LEN] __attribute__((section(".dma_buffer")));
+static uint16_t dac_noisy[DAC_LEN] __attribute__((section(".dma_buffer")));
+static uint16_t adc_buf[ADC_LEN] __attribute__((section(".dma_buffer"))); /* CH1, CH2, CH1, CH2, ... */
+
+static volatile int32_t ready_half = -1; /* 0 or 1 once that ADC half is full */
+static uint32_t seq;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
-
+static void fill_dac_half(uint32_t half);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/* Siggen hook: fill samples [half * HALF_FRAMES, (half + 1) * HALF_FRAMES) of both
+ * DAC buffers (12-bit, 0..4095). Generate fresh noise on every call: a repeating
+ * noise buffer makes the injected noise periodic. Mid-scale placeholder for now. */
+static void fill_dac_half(uint32_t half)
+{
+  for (uint32_t i = half * HALF_FRAMES; i < (half + 1U) * HALF_FRAMES; i++)
+  {
+    dac_clean[i] = 2048U;
+    dac_noisy[i] = 2048U;
+  }
+}
 
 /* USER CODE END 0 */
 
@@ -148,7 +173,26 @@ Error_Handler();
   MX_USART3_UART_Init();
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
+  fill_dac_half(0U);
+  fill_dac_half(1U);
 
+  /* Arm all DMA streams first; TIM6 starts last so everything begins on the same tick */
+  if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)dac_clean, DAC_LEN, DAC_ALIGN_12B_R) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t *)dac_noisy, DAC_LEN, DAC_ALIGN_12B_R) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_ADC_Start_DMA(&hadc2, (uint32_t *)adc_buf, ADC_LEN) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_Base_Start(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -158,6 +202,20 @@ Error_Handler();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (ready_half >= 0)
+    {
+      uint32_t half = (uint32_t)ready_half;
+      ready_half = -1;
+
+      /* Packet: magic, sequence number, then HALF_FRAMES x [ch1, ch2] as uint16 LE */
+      uint32_t header[2] = { SYNC_MAGIC, seq++ };
+      HAL_UART_Transmit(&huart3, (uint8_t *)header, sizeof(header), HAL_MAX_DELAY);
+      HAL_UART_Transmit(&huart3, (uint8_t *)&adc_buf[half * HALF_FRAMES * 2U],
+                        HALF_FRAMES * 2U * sizeof(uint16_t), HAL_MAX_DELAY);
+
+      /* The DAC DMA has finished reading this half as well, so it can be refilled */
+      fill_dac_half(half);
+    }
   }
   /* USER CODE END 3 */
 }
@@ -217,6 +275,18 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc)
+{
+  (void)hadc;
+  ready_half = 0;
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+  (void)hadc;
+  ready_half = 1;
+}
 
 /* USER CODE END 4 */
 
