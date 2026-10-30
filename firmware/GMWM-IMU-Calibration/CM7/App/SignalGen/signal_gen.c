@@ -10,7 +10,9 @@
 #include <stddef.h>
 
 #define TWO_PI_F     6.28318530718f
-#define PHASE_TO_RAD (TWO_PI_F / 4294967296.0f)
+#define PHASE_TURN   4294967296.0f
+#define PHASE_HALF   0x80000000U
+#define PHASE_TO_RAD (TWO_PI_F / PHASE_TURN)
 
 /* PCG32 (O'Neill, pcg-random.org): 64-bit state, 32-bit output, period 2^64 */
 static uint32_t pcg32(uint64_t *state)
@@ -59,10 +61,52 @@ static uint16_t to_code(signal_gen_t *sg, float v)
     return (uint16_t) (v + 0.5f);
 }
 
+float signal_gen_wave_sine(uint32_t phase, const void *params)
+{
+    (void) params;
+    return sinf((float) phase * PHASE_TO_RAD);
+}
+
+float signal_gen_wave_square(uint32_t phase, const void *params)
+{
+    (void) params;
+    return (phase < PHASE_HALF) ? 1.0f : -1.0f;
+}
+
+float signal_gen_wave_triangle(uint32_t phase, const void *params)
+{
+    return 1.0f - 2.0f * fabsf(signal_gen_wave_sawtooth(phase, params));
+}
+
+float signal_gen_wave_sawtooth(uint32_t phase, const void *params)
+{
+    (void) params;
+    /* phase - 2^31 as a signed value is (p - 1/2) * 2^32 */
+    return (float) (int32_t) (phase - PHASE_HALF) * (2.0f / PHASE_TURN);
+}
+
+float signal_gen_wave_pulse(uint32_t phase, const void *params)
+{
+    const signal_gen_pulse_t *pulse = params;
+    return ((float) phase < pulse->duty * PHASE_TURN) ? 1.0f : -1.0f;
+}
+
+/* After WAVEFORM_ARBITRARY in the Teensy Audio Library (github.com/PaulStoffregen/Audio) */
+float signal_gen_wave_table(uint32_t phase, const void *params)
+{
+    const signal_gen_table_t *table = params;
+
+    uint64_t pos  = (uint64_t) phase * table->n; /* 32.32 fixed point */
+    uint32_t i    = (uint32_t) (pos >> 32);
+    uint32_t next = (i + 1U < table->n) ? i + 1U : 0U;
+    float    frac = (float) (uint32_t) pos * (1.0f / PHASE_TURN);
+    return table->samples[i] + frac * (table->samples[next] - table->samples[i]);
+}
+
 bool signal_gen_init(signal_gen_t *sg, const signal_gen_config_t *cfg)
 {
     /* Written as !(valid) so NaN settings are rejected too */
-    if (!(cfg->fs_hz > 0.0f) || !(cfg->freq_hz >= 0.0f) || !(cfg->freq_hz < 0.5f * cfg->fs_hz) ||
+    if (!(cfg->fs_hz > 0.0f) || !(cfg->freq_hz >= 0.0f) || !(cfg->freq_hz < 0.5f * cfg->fs_hz) || (cfg->wave == NULL) ||
         !(cfg->white_std >= 0.0f))
     {
         return false;
@@ -89,7 +133,7 @@ void signal_gen_fill(signal_gen_t *sg, uint16_t *clean, uint16_t *noisy, uint32_
 {
     for (uint32_t i = 0U; i < n; i++)
     {
-        float s = sg->cfg.offset + sg->cfg.amplitude * sinf((float) sg->phase * PHASE_TO_RAD);
+        float s = sg->cfg.offset + sg->cfg.amplitude * sg->cfg.wave(sg->phase, sg->cfg.wave_params);
         sg->phase += sg->phase_inc;
 
         if (clean != NULL)

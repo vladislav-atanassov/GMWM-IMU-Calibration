@@ -30,9 +30,9 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 │       ├── CM7/
 │       │   └── App/                  hand-written firmware
 │       │       ├── SignalGen/
+│       │       │   └── signal_gen_config.h  experiment settings
 │       │       ├── SensorEmulator/
-│       │       ├── Stream/
-│       │       └── app_config.h      experiment settings
+│       │       └── Stream/
 │       └── CM4/                      second core, unused; waits in Stop mode
 ├── matlab/
 │   ├── read_packets.m                reads the stream
@@ -76,7 +76,7 @@ python -m gmwm flash-monitor
 
 To record in MATLAB, stop the monitor first, since the COM port has one owner at a time. Set `port` in `matlab/record_loopback.m` and run it.
 
-The experiment settings (sample rate, signal, noise level, seed) are in `firmware/GMWM-IMU-Calibration/CM7/App/app_config.h`. Change them, then flash again.
+The experiment settings (sample rate, waveform, noise level, seed) are in `firmware/GMWM-IMU-Calibration/CM7/App/SignalGen/signal_gen_config.h`. Change them, then flash again. The waveform is a built-in `signal_gen_wave_*` function or your own `signal_gen_wave_t`.
 
 ## Code style
 

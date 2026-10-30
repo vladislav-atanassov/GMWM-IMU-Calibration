@@ -13,10 +13,10 @@
 #include "sensor_emulator.h"
 
 #include "adc.h"
-#include "app_config.h"
 #include "dac.h"
 #include "main.h"
 #include "signal_gen.h"
+#include "signal_gen_config.h"
 #include "tim.h"
 
 #define HALF_FRAMES 256U                                          /* frames per block */
@@ -24,7 +24,8 @@
 #define ADC_LEN     (2U * HALF_FRAMES * SENSOR_EMULATOR_CHANNELS) /* 2 halves, interleaved */
 
 /* Above about 10 kHz the ADC conversions and the 921600 baud link run out of room */
-_Static_assert(EMULATOR_FS_HZ >= 1U && EMULATOR_FS_HZ <= 10000U, "EMULATOR_FS_HZ must be 1..10000 Hz");
+#define FS_MIN_HZ 1.0f
+#define FS_MAX_HZ 10000.0f
 
 /* DMA buffers live in AXI SRAM (.dma_buffer): DMA1 cannot reach DTCM */
 static uint16_t dac_clean[DAC_LEN] __attribute__((section(".dma_buffer")));
@@ -47,11 +48,11 @@ static uint32_t tim6_clock_hz(void)
 }
 
 /* Sets TIM6 as close to fs as its clock allows and returns the rate achieved */
-static float tim6_set_rate(uint32_t fs)
+static float tim6_set_rate(float fs)
 {
     uint32_t clk   = tim6_clock_hz();
-    uint32_t ticks = (clk + fs / 2U) / fs;  /* timer clocks per sample */
-    uint32_t psc   = (ticks - 1U) / 65536U; /* smallest prescaler that keeps ARR within 16 bits */
+    uint32_t ticks = (uint32_t) ((float) clk / fs + 0.5f); /* timer clocks per sample */
+    uint32_t psc   = (ticks - 1U) / 65536U;                /* smallest prescaler that keeps ARR within 16 bits */
     uint32_t arr   = (ticks + (psc + 1U) / 2U) / (psc + 1U) - 1U;
 
     /* Overrides the CubeMX values; DAC and ADC are not enabled yet, so the update
@@ -72,8 +73,12 @@ static void fill_dac_half(uint32_t half)
 
 void sensor_emulator_start(void)
 {
-    const float               fs_hz = tim6_set_rate(EMULATOR_FS_HZ);
-    const signal_gen_config_t cfg   = EMULATOR_SIGNAL_GEN_CONFIG(fs_hz);
+    signal_gen_config_t cfg = signal_gen_config_app;
+    if (!(cfg.fs_hz >= FS_MIN_HZ && cfg.fs_hz <= FS_MAX_HZ))
+    {
+        Error_Handler();
+    }
+    cfg.fs_hz = tim6_set_rate(cfg.fs_hz); /* the rate achieved */
     if (!signal_gen_init(&signal_gen, &cfg))
     {
         Error_Handler();

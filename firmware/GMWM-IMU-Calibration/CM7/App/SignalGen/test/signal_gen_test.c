@@ -44,6 +44,7 @@ static signal_gen_config_t base_config(void)
 {
     signal_gen_config_t cfg = {
         .fs_hz     = FS,
+        .wave      = signal_gen_wave_sine,
         .offset    = 2048.0f,
         .amplitude = 1024.0f,
         .freq_hz   = 1.0f,
@@ -106,29 +107,100 @@ static void test_white_noise(void)
     CHECK(fabs(lag1) < 0.01, "noise lag-1 autocorrelation %.4f (0, white)", lag1);
 }
 
-static void test_sine(void)
+/* A custom waveform: steps through the levels in params */
+typedef struct
 {
-    const signal_gen_config_t cfg = base_config();
-    generate(&cfg, clean, NULL, CHUNK);
+    const float *levels;
+    uint32_t     n;
+} staircase_t;
 
-    uint16_t lo = 0xFFFF, hi = 0U;
-    for (uint32_t i = 0U; i < N; i++)
-    {
-        lo = clean[i] < lo ? clean[i] : lo;
-        hi = clean[i] > hi ? clean[i] : hi;
-    }
-    CHECK(lo == 1024U && hi == 3072U, "sine range %u..%u (1024..3072)", lo, hi);
+static float wave_staircase(uint32_t phase, const void *params)
+{
+    const staircase_t *s = params;
+    return s->levels[((uint64_t) phase * s->n) >> 32];
+}
 
-    /* Compare against an exact sine over the whole run (400 s); amplitude, phase
-   * and frequency errors would all grow past 1 code */
-    double worst = 0.0;
-    for (uint32_t i = 0U; i < N; i++)
+static const float       STAIRS[]  = {-1.0f, 0.5f, 1.0f, -0.25f};
+static const staircase_t STAIRCASE = {STAIRS, 4U};
+
+/* Exact waveforms over one period, p in [0, 1) */
+static double exact_sine(double p)
+{
+    return sin(2.0 * PI * p);
+}
+
+static double exact_square(double p)
+{
+    return p < 0.5 ? 1.0 : -1.0;
+}
+
+static double exact_triangle(double p)
+{
+    return p < 0.5 ? 4.0 * p - 1.0 : 3.0 - 4.0 * p;
+}
+
+static double exact_sawtooth(double p)
+{
+    return 2.0 * p - 1.0;
+}
+
+static double exact_pulse(double p)
+{
+    return p < 0.25 ? 1.0 : -1.0;
+}
+
+static double exact_staircase(double p)
+{
+    return STAIRS[(int) (p * 4.0)];
+}
+
+/* Interpolates to a triangle, including the wrap from the last sample to the first */
+static const float              TABLE_SAMPLES[] = {0.0f, 1.0f, 0.0f, -1.0f};
+static const signal_gen_table_t TABLE           = {TABLE_SAMPLES, 4U};
+
+static double exact_table(double p)
+{
+    return p < 0.25 ? 4.0 * p : p < 0.75 ? 2.0 - 4.0 * p : 4.0 * p - 4.0;
+}
+
+static void test_waves(void)
+{
+    static const signal_gen_pulse_t PULSE = {.duty = 0.25f};
+    static const struct
     {
-        double ideal = cfg.offset + cfg.amplitude * sin(2.0 * PI * cfg.freq_hz * i / FS);
-        double err   = fabs((double) clean[i] - ideal);
-        worst        = err > worst ? err : worst;
+        const char       *name;
+        signal_gen_wave_t wave;
+        const void       *params;
+        double (*exact)(double p);
+    } waves[] = {
+        {"sine", signal_gen_wave_sine, NULL, exact_sine},
+        {"square", signal_gen_wave_square, NULL, exact_square},
+        {"triangle", signal_gen_wave_triangle, NULL, exact_triangle},
+        {"sawtooth", signal_gen_wave_sawtooth, NULL, exact_sawtooth},
+        {"pulse, duty 0.25", signal_gen_wave_pulse, &PULSE, exact_pulse},
+        {"table", signal_gen_wave_table, &TABLE, exact_table},
+        {"custom staircase", wave_staircase, &STAIRCASE, exact_staircase},
+    };
+
+    for (uint32_t w = 0U; w < sizeof(waves) / sizeof(waves[0]); w++)
+    {
+        signal_gen_config_t cfg = base_config();
+        cfg.wave                = waves[w].wave;
+        cfg.wave_params         = waves[w].params;
+        generate(&cfg, clean, NULL, CHUNK);
+
+        /* Compare against the exact waveform over the whole run (400 s); amplitude,
+         * phase and frequency errors would all grow past 1 code */
+        double worst = 0.0;
+        for (uint32_t i = 0U; i < N; i++)
+        {
+            double p     = fmod((double) cfg.freq_hz * i / FS, 1.0);
+            double ideal = cfg.offset + cfg.amplitude * waves[w].exact(p);
+            double err   = fabs((double) clean[i] - ideal);
+            worst        = err > worst ? err : worst;
+        }
+        CHECK(worst <= 1.0, "%s within %.3f codes of the exact waveform over %u samples", waves[w].name, worst, N);
     }
-    CHECK(worst <= 1.0, "sine within %.3f codes of an exact sine over %u samples", worst, N);
 }
 
 static void test_chunking(void)
@@ -200,12 +272,16 @@ static void test_validation(void)
     cfg         = base_config();
     cfg.freq_hz = NAN;
     CHECK(!signal_gen_init(&sg, &cfg), "NaN frequency rejected");
+
+    cfg      = base_config();
+    cfg.wave = NULL;
+    CHECK(!signal_gen_init(&sg, &cfg), "no waveform rejected");
 }
 
 int main(void)
 {
     test_white_noise();
-    test_sine();
+    test_waves();
     test_chunking();
     test_seed();
     test_no_noise();

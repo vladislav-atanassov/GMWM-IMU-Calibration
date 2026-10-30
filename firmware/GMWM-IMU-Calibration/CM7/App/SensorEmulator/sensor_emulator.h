@@ -6,7 +6,7 @@
   *          SignalGen writes a clean signal to DAC1 CH1 and the same signal with
   *          noise to DAC1 CH2. ADC2 reads both back on every TIM6 tick, so each
   *          frame holds the measured [clean, noisy] pair: ground truth plus a
-  *          noisy measurement. Settings are in app_config.h.
+  *          noisy measurement. Settings are in signal_gen_config.h.
   ******************************************************************************
   */
 #ifndef SENSOR_EMULATOR_H
@@ -29,7 +29,7 @@ typedef struct
     uint32_t        seq; /* block number since start; a gap means blocks were skipped */
 } sensor_emulator_block_t;
 
-/* Sets TIM6 to EMULATOR_FS_HZ, starts the DAC and ADC, then the timer */
+/* Sets TIM6 to the sample rate in signal_gen_config.h, starts the DAC and ADC, then the timer */
 void sensor_emulator_start(void);
 
 /* Returns true and fills block when a new block is ready. The data stays valid

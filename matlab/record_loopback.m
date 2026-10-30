@@ -3,7 +3,7 @@
 
 port  = "COM4"; % ST-LINK virtual COM port, see serialportlist
 count = 40;     % packets to record; each has 256 frames (0.256 s at 1 kHz)
-fs    = 1000;   % sample rate, EMULATOR_FS_HZ in app_config.h
+fs    = 1000;   % sample rate, fs_hz in signal_gen_config.h
 
 packets = read_packets(port, count);
 
