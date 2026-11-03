@@ -1,12 +1,12 @@
 /**
   ******************************************************************************
-  * @file    stream.c
-  * @brief   Packets to MATLAB over USART3, see stream.h.
+  * @file    stream_packet.c
+  * @brief   Packet framing, see stream_packet.h.
   ******************************************************************************
   */
-#include "stream.h"
+#include "stream_packet.h"
 
-#include "usart.h"
+#include "stream_port.h"
 
 typedef struct
 {
@@ -16,12 +16,14 @@ typedef struct
     uint32_t seq;
 } stream_header_t;
 
+/* The header is sent as its in-memory bytes, so its layout must be the wire layout */
 _Static_assert(sizeof(stream_header_t) == 12U, "stream header must have no padding");
+_Static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "stream format is little-endian");
 
 void stream_send(uint16_t source, uint32_t seq, const void *payload, uint16_t length)
 {
     const stream_header_t header = {STREAM_MAGIC, source, length, seq};
 
-    HAL_UART_Transmit(&huart3, (const uint8_t *) &header, sizeof(header), HAL_MAX_DELAY);
-    HAL_UART_Transmit(&huart3, (const uint8_t *) payload, length, HAL_MAX_DELAY);
+    stream_port_write(&header, sizeof(header));
+    stream_port_write(payload, length);
 }

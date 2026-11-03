@@ -1,7 +1,8 @@
 function packets = read_packets(port, count)
 % Read count packets from the H7's stream over the ST-LINK virtual COM port.
 % Returns a struct array with the header fields source and seq, and payload
-% as raw bytes for the caller to decode. Packet format is in stream.h.
+% as raw bytes for the caller to decode. Packet format is in
+% firmware/common/stream/stream_packet.h.
 
 device = serialport(port, 921600);
 flush(device);

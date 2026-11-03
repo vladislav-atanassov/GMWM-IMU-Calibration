@@ -9,7 +9,7 @@
 #include "app.h"
 
 #include "sensor_emulator.h"
-#include "stream.h"
+#include "stream_packet.h"
 
 void app_start(void)
 {

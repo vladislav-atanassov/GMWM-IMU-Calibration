@@ -24,16 +24,19 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 
 ```text
 .
-├── firmware/
-│   └── GMWM-IMU-Calibration/         step 1: STM32CubeMX dual-core CMake project
-│       ├── GMWM-IMU-Calibration.ioc  peripheral setup
-│       ├── CM7/
-│       │   └── App/                  hand-written firmware
-│       │       ├── SignalGen/
-│       │       │   └── signal_gen_config.h  experiment settings
-│       │       ├── SensorEmulator/
-│       │       └── Stream/
-│       └── CM4/                      second core, unused; waits in Stop mode
+├── firmware/                         by purpose, then by board
+│   ├── common/
+│   │   └── stream/                   packet format to the PC, shared by every board
+│   └── imu-emulator/                 step 1: emulates an IMU with a known noise model
+│       └── nucleo-h755zi-q/          STM32CubeMX dual-core CMake project
+│           ├── GMWM-IMU-Calibration.ioc  peripheral setup
+│           ├── CM7/
+│           │   └── App/              hand-written firmware
+│           │       ├── SignalGen/
+│           │       │   └── signal_gen_config.h  experiment settings
+│           │       ├── SensorEmulator/
+│           │       └── Stream/       sends stream packets over USART3
+│           └── CM4/                  second core, unused; waits in Stop mode
 ├── matlab/
 │   ├── wavelets/                     Haar wavelet variance, model wavelet variances, GMWM fit
 │   ├── read_packets.m                reads the stream
@@ -88,8 +91,8 @@ Run `matlab/emulated_imu.m` from `matlab/`. Set `source` at the top:
 
 For `"board"`, set `file` to a new name and stop the monitor (the COM port has one owner). Reset the board just before, since the random walk grows from reset, and keep the PC awake, since sleep cuts the stream.
 
-The experiment settings (sample rate, signal, noise processes, seed) are in `firmware/GMWM-IMU-Calibration/CM7/App/SignalGen/signal_gen_config.h`. Change them, then flash again.
+The experiment settings (sample rate, signal, noise processes, seed) are in `firmware/imu-emulator/nucleo-h755zi-q/CM7/App/SignalGen/signal_gen_config.h`. Change them, then flash again.
 
 ## Code style
 
-`.clang-format` applies to `CM7/App/` only, so the CubeMX code stays as generated. With the hook on, a commit that stages unformatted files there is rejected, and the hook prints the command that fixes them. If clang-format is not on your PATH, point the hook at it with `git config hooks.clangFormat <path-to-clang-format>`.
+`.clang-format` applies to the hand-written code only (`CM7/App/` and `firmware/common/`), so the CubeMX code stays as generated. With the hook on, a commit that stages unformatted files there is rejected, and the hook prints the command that fixes them. If clang-format is not on your PATH, point the hook at it with `git config hooks.clangFormat <path-to-clang-format>`.

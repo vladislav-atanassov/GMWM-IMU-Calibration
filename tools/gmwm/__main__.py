@@ -19,7 +19,7 @@ DEFAULT_BAUD = 921600
 PRESET = "Debug"
 CORES = ("CM7", "CM4")
 
-# Packet header from App/Stream/stream.h, little-endian:
+# Packet header from firmware/common/stream/stream_packet.h, little-endian:
 #   uint32 magic, uint16 source, uint16 length, uint32 seq
 STREAM_MAGIC = struct.pack("<I", 0xC0DEC0DE)
 STREAM_HEADER = struct.Struct("<IHHI")
@@ -31,7 +31,7 @@ def _project_root() -> Path:
 
 
 def _firmware_dir() -> Path:
-    return _project_root() / "firmware" / "GMWM-IMU-Calibration"
+    return _project_root() / "firmware" / "imu-emulator" / "nucleo-h755zi-q"
 
 
 def _elf(core: str) -> Path:
