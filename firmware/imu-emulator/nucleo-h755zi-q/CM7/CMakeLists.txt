@@ -51,7 +51,6 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
 # Enable CMake support for ASM and C languages
 enable_language(C ASM)
 
-# Code shared by all boards' firmware
 set(FIRMWARE_COMMON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../common)
 
 # Add include paths

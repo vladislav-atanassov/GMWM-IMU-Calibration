@@ -12,6 +12,7 @@
 # Hand-written code only; the CubeMX code stays as generated
 app_dir=firmware/imu-emulator/nucleo-h755zi-q/CM7/App
 common_dir=firmware/common
+xiao_dir=firmware/imu-streamer/xiao-nrf52840-sense
 
 clang_format=${CLANG_FORMAT:-$(git config hooks.clangFormat)}
 clang_format=${clang_format:-clang-format}
@@ -23,7 +24,8 @@ if ! command -v "$clang_format" >/dev/null 2>&1; then
 fi
 
 # Added, copied, modified or renamed; a deleted file has nothing to check
-files=$(git diff --cached --name-only --diff-filter=ACMR -- "$app_dir/*.c" "$app_dir/*.h" "$common_dir/*.c" "$common_dir/*.h")
+files=$(git diff --cached --name-only --diff-filter=ACMR -- "$app_dir/*.c" "$app_dir/*.h" "$common_dir/*.c" "$common_dir/*.h" \
+    "$xiao_dir/src/*.c" "$xiao_dir/include/*.h")
 [ -n "$files" ] || exit 0
 
 # An unreadable config would otherwise show up as every file being unformatted

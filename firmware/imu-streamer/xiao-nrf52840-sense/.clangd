@@ -1,0 +1,3 @@
+# The build is outside the repo because of the Windows path limit, see CMakeLists.txt
+CompileFlags:
+  CompilationDatabase: C:/gmwm-build/xiao-nrf52840-sense/xiao-nrf52840-sense

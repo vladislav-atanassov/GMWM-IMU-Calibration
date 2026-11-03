@@ -27,23 +27,33 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 ├── firmware/                         by purpose, then by board
 │   ├── common/
 │   │   └── stream/                   packet format to the PC, shared by every board
-│   └── imu-emulator/                 step 1: emulates an IMU with a known noise model
-│       └── nucleo-h755zi-q/          STM32CubeMX dual-core CMake project
-│           ├── GMWM-IMU-Calibration.ioc  peripheral setup
-│           ├── CM7/
-│           │   └── App/              hand-written firmware
-│           │       ├── SignalGen/
-│           │       │   └── signal_gen_config.h  experiment settings
-│           │       ├── SensorEmulator/
-│           │       └── Stream/       sends stream packets over USART3
-│           └── CM4/                  second core, unused; waits in Stop mode
+│   ├── imu-emulator/                 step 1: emulates an IMU with a known noise model
+│   │   └── nucleo-h755zi-q/          STM32CubeMX dual-core CMake project
+│   │       ├── GMWM-IMU-Calibration.ioc  peripheral setup
+│   │       ├── CM7/
+│   │       │   └── App/              hand-written firmware
+│   │       │       ├── SignalGen/
+│   │       │       │   └── signal_gen_config.h  experiment settings
+│   │       │       ├── SensorEmulator/
+│   │       │       └── Stream/       sends stream packets over USART3
+│   │       └── CM4/                  second core, unused; waits in Stop mode
+│   └── imu-streamer/                 step 2: streams a real IMU
+│       └── xiao-nrf52840-sense/      Zephyr application (nRF Connect SDK)
+│           ├── CMakeLists.txt
+│           ├── prj.conf              Kconfig options
+│           ├── include/
+│           │   └── Imu/              LSM6DS3TR-C constants and interface
+│           └── src/
+│               ├── Imu/              LSM6DS3TR-C over i2c0
+│               ├── Stream/           sends stream packets over USB CDC ACM
+│               └── main.c
 ├── matlab/
 │   ├── wavelets/                     Haar wavelet variance, model wavelet variances, GMWM fit
 │   ├── read_packets.m                reads the stream
 │   └── emulated_imu.m                fits GMWM to the emulated IMU: recorded or simulated
 ├── data/                             recordings
 ├── tools/
-│   └── gmwm/                         Python CLI to build, flash, and monitor the board
+│   └── gmwm/                         Python CLI to build, flash, and monitor the Nucleo
 ├── assets/
 └── .githooks/
 ```
@@ -54,6 +64,7 @@ You need:
 
 - Arm GNU Toolchain (`arm-none-eabi-gcc`; 14.2 is used here), CMake 3.22 or newer, and Ninja
 - STM32CubeProgrammer, to flash through the board's ST-LINK
+- nRF Connect SDK v3.2.1 and its toolchain, for the XIAO. The nRF Connect for VS Code extension installs both (to `C:/ncs` by default), and it works in Cursor too
 - Python 3.10 or newer
 - MATLAB R2019b or newer, for `serialport`
 - clang-format 21 or newer, for the pre-commit hook
@@ -64,6 +75,8 @@ Once per clone:
 pip install -e .                       # installs the gmwm CLI and pyserial
 git config core.hooksPath .githooks    # turns on the format check
 ```
+
+### Emulator: NUCLEO-H755ZI-Q
 
 Build, flash, and watch the stream:
 
@@ -78,6 +91,21 @@ python -m gmwm flash-monitor
 | `python -m gmwm flash` | Builds, then flashes and verifies both cores over SWD |
 | `python -m gmwm monitor` | Prints one line per streamed block: clean range, noise mean and std (`-p` port, `-b` baud) |
 | `python -m gmwm flash-monitor` | `flash`, then `monitor` |
+
+### IMU streamer: XIAO nRF52840 Sense
+
+Run these in a terminal with the nRF Connect SDK v3.2.1 toolchain on its PATH, such as the **nRF Connect** terminal profile that the extension adds to the editor's terminal menu. From `firmware/imu-streamer/xiao-nrf52840-sense/`:
+
+```sh
+west build -b xiao_ble/nrf52840/sense -d C:/gmwm-build/xiao-nrf52840-sense   # build
+west flash -d C:/gmwm-build/xiao-nrf52840-sense -r uf2                       # flash
+```
+
+The build goes to `C:/gmwm-build/`, outside the repo. On Windows, Zephyr's build tree is so deep that a build folder inside the repo makes object paths longer than the 260-character limit. `CMakeLists.txt` stops with this command in its message if the build folder's path is longer than 90 characters. In the nRF Connect panel, set the build configuration's build directory to the same folder.
+
+To flash, double-press the XIAO's reset button first. The bootloader then shows up as a USB drive (`XIAO-SENSE`), and `west flash` copies `zephyr.uf2` onto it.
+
+The firmware is a bring-up check for now: once a second it prints the LSM6DS3TR-C's `WHO_AM_I` (`0x6A` when the IMU answers) and blinks the red LED. It shows up as a USB serial port with USB ID `2fe3:0004`. Open it with any serial terminal, such as nRF Terminal. The baud rate doesn't matter.
 
 ## Run GMWM
 
@@ -95,4 +123,4 @@ The experiment settings (sample rate, signal, noise processes, seed) are in `fir
 
 ## Code style
 
-`.clang-format` applies to the hand-written code only (`CM7/App/` and `firmware/common/`), so the CubeMX code stays as generated. With the hook on, a commit that stages unformatted files there is rejected, and the hook prints the command that fixes them. If clang-format is not on your PATH, point the hook at it with `git config hooks.clangFormat <path-to-clang-format>`.
+`.clang-format` applies to the hand-written code only (`CM7/App/`, `firmware/common/`, and the XIAO's `src/` and `include/`), so the CubeMX code stays as generated. With the hook on, a commit that stages unformatted files there is rejected, and the hook prints the command that fixes them. If clang-format is not on your PATH, point the hook at it with `git config hooks.clangFormat <path-to-clang-format>`.
