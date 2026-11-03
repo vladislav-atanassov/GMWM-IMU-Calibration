@@ -2,11 +2,11 @@
 
 Use the Generalized Method of Wavelet Moments (GMWM) to identify an IMU's stochastic error model from real data. Then turn that model into the noise parameters of a Kalman filter.
 
-Hardware: NUCLEO-H755ZI-Q (STM32H755) and an IMU (BNO086). Firmware in C using ST's eco system, analysis in MATLAB.
+Hardware: a NUCLEO-H755ZI-Q (STM32H755) for the step 1 warm-up, then a Seeed Studio XIAO nRF52840 Sense and its LSM6DS3TR-C 6-axis IMU. Firmware in C, analysis in MATLAB.
 
 ## Status
 
-Step 1, the loopback reference, works end to end. The board makes a clean 1 Hz sine and the same sine with white Gaussian noise of a known size, reads both back with its ADC, and streams them to the PC. A 10 s recording measures the noise at 1012 to 1023 ADC codes, against the 1024 injected. Step 2 is next.
+Step 1 is done. The board emulates a static MEMS IMU, and from one 19 min recording GMWM recovers the white noise within 0.2% and both Gauss-Markov standard deviations within 5%. The correlation times (14% and 45% low) and the random walk (29% low) are within the normal spread for one recording this long, so the real IMU will need longer or repeated logs. Step 2 is next.
 
 ![Controller setup: TIM6 triggers DAC1 and ADC2, DMA moves samples through AXI SRAM, and blocks stream over USART3 and the ST-LINK to the PC](assets/controller-setup.excalidraw.svg)
 
@@ -14,8 +14,8 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 
 ## Steps
 
-1. **Loopback reference** (done). The DAC generates a clean signal and the same signal with known noise added. The ADC samples both, and the data is streamed to MATLAB.
-2. **GMWM on known noise** (next). Compute the wavelet variance and fit a GMWM model to the loopback data. Check that it recovers the noise that was injected.
+1. **Emulated IMU** (done). The DAC generates a constant level and the same level with a known IMU noise model added: white noise, two Gauss-Markov processes, and a random walk, at the levels of an LSM6DS3TR-C gyro. The ADC samples both and streams them to MATLAB, where GMWM has to recover the model.
+2. **Stream the IMU** (next). Firmware for the XIAO that reads the LSM6DS3TR-C's raw gyro, accelerometer, and temperature and streams them to the PC over USB.
 3. **Real IMU data.** Record long, static IMU logs and fit GMWM models to the gyro and accelerometer.
 4. **Kalman calibration.** Turn the fitted model into Kalman filter noise parameters and test the filter.
 5. **Compare.** Compare IMUs and calibration methods, such as GMWM against the Allan variance.
@@ -25,7 +25,7 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 ```text
 .
 ├── firmware/
-│   └── GMWM-IMU-Calibration/         STM32CubeMX dual-core CMake project
+│   └── GMWM-IMU-Calibration/         step 1: STM32CubeMX dual-core CMake project
 │       ├── GMWM-IMU-Calibration.ioc  peripheral setup
 │       ├── CM7/
 │       │   └── App/                  hand-written firmware
@@ -35,8 +35,10 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 │       │       └── Stream/
 │       └── CM4/                      second core, unused; waits in Stop mode
 ├── matlab/
+│   ├── wavelets/                     Haar wavelet variance, model wavelet variances, GMWM fit
 │   ├── read_packets.m                reads the stream
-│   └── record_loopback.m             records and plots step 1
+│   └── emulated_imu.m                fits GMWM to the emulated IMU: recorded or simulated
+├── data/                             recordings
 ├── tools/
 │   └── gmwm/                         Python CLI to build, flash, and monitor the board
 ├── assets/
@@ -74,9 +76,19 @@ python -m gmwm flash-monitor
 | `python -m gmwm monitor` | Prints one line per streamed block: clean range, noise mean and std (`-p` port, `-b` baud) |
 | `python -m gmwm flash-monitor` | `flash`, then `monitor` |
 
-To record in MATLAB, stop the monitor first, since the COM port has one owner at a time. Set `port` in `matlab/record_loopback.m` and run it.
+## Run GMWM
 
-The experiment settings (sample rate, waveform, noise level, seed) are in `firmware/GMWM-IMU-Calibration/CM7/App/SignalGen/signal_gen_config.h`. Change them, then flash again. The waveform is a built-in `signal_gen_wave_*` function or your own `signal_gen_wave_t`.
+Run `matlab/emulated_imu.m` from `matlab/`. Set `source` at the top:
+
+| `source` | Data | Needs |
+| --- | --- | --- |
+| `"recording"` | the board recording in `data/emulated_imu.mat` | MATLAB |
+| `"sim"` | the same noise, simulated in MATLAB | MATLAB |
+| `"board"` | a new 19 min recording from your board, saved to `file` | the board, flashed |
+
+For `"board"`, set `file` to a new name and stop the monitor (the COM port has one owner). Reset the board just before, since the random walk grows from reset, and keep the PC awake, since sleep cuts the stream.
+
+The experiment settings (sample rate, signal, noise processes, seed) are in `firmware/GMWM-IMU-Calibration/CM7/App/SignalGen/signal_gen_config.h`. Change them, then flash again.
 
 ## Code style
 

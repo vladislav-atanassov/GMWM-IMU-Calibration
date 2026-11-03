@@ -107,6 +107,75 @@ static void test_white_noise(void)
     CHECK(fabs(lag1) < 0.01, "noise lag-1 autocorrelation %.4f (0, white)", lag1);
 }
 
+static void test_gauss_markov(void)
+{
+    signal_gen_config_t cfg = base_config();
+    cfg.amplitude           = 0.0f;
+    cfg.noise               = SIGNAL_GEN_NOISE_GM;
+    cfg.gm[0].tc_s          = 10.0f / FS; /* 10 samples; gm[1] stays off */
+    cfg.gm[0].std           = STD;
+    generate(&cfg, NULL, noisy, CHUNK);
+
+    double mean = 0.0;
+    for (uint32_t i = 0U; i < N; i++)
+    {
+        mean += (double) noisy[i];
+    }
+    mean /= N;
+
+    double var = 0.0, lag1 = 0.0, prev = 0.0;
+    for (uint32_t i = 0U; i < N; i++)
+    {
+        double d = (double) noisy[i] - mean;
+        var += d * d;
+        if (i > 0U)
+        {
+            lag1 += d * prev;
+        }
+        prev = d;
+    }
+    var /= N;
+    lag1 /= (N - 1U) * var;
+
+    double std = sqrt(var);
+    double phi = exp(-1.0 / 10.0);
+
+    /* Limits are about 4 standard errors for N = 200000 and this phi */
+    CHECK(fabs(std - STD) < 1.3, "Gauss-Markov std %.3f (%.0f)", std, (double) STD);
+    CHECK(fabs(lag1 - phi) < 0.004, "Gauss-Markov lag-1 autocorrelation %.4f (%.4f)", lag1, phi);
+}
+
+/* RMS of x[i + lag] - x[i]; every increment has mean 0 here */
+static double increment_rms(const uint16_t *x, uint32_t lag)
+{
+    double sum = 0.0;
+    for (uint32_t i = lag; i < N; i++)
+    {
+        double d = (double) x[i] - (double) x[i - lag];
+        sum += d * d;
+    }
+    return sqrt(sum / (N - lag));
+}
+
+static void test_random_walk(void)
+{
+    signal_gen_config_t cfg = base_config();
+    cfg.amplitude           = 0.0f;
+    cfg.noise               = SIGNAL_GEN_NOISE_RW;
+    cfg.rw_step             = 1.0f;
+    generate(&cfg, NULL, noisy, CHUNK);
+
+    /* Over lag samples the walk moves sqrt(lag) x rw_step, and rounding to codes adds a
+     * variance of 1/12 at each end. White noise would give the same spread at both lags.
+     * Limits are about 4 standard errors for N = 200000 */
+    double s1   = increment_rms(noisy, 1U);
+    double s100 = increment_rms(noisy, 100U);
+    double e1   = sqrt(1.0 + 1.0 / 6.0);
+    double e100 = sqrt(100.0 + 1.0 / 6.0);
+    CHECK(fabs(s1 - e1) < 0.01, "random walk spread over 1 sample %.4f (%.4f)", s1, e1);
+    CHECK(fabs(s100 - e100) < 0.5, "random walk spread over 100 samples %.3f (%.3f)", s100, e100);
+}
+
 /* A custom waveform: steps through the levels in params */
 typedef struct
 {
@@ -270,6 +339,14 @@ static void test_validation(void)
     CHECK(!signal_gen_init(&sg, &cfg), "negative noise level rejected");
 
     cfg         = base_config();
+    cfg.rw_step = -1.0f;
+    CHECK(!signal_gen_init(&sg, &cfg), "negative random walk step rejected");
+
+    cfg           = base_config();
+    cfg.gm[0].std = 1.0f; /* tc_s stays 0 */
+    CHECK(!signal_gen_init(&sg, &cfg), "Gauss-Markov with std > 0 and no correlation time rejected");
+
+    cfg         = base_config();
     cfg.freq_hz = NAN;
     CHECK(!signal_gen_init(&sg, &cfg), "NaN frequency rejected");
 
@@ -281,6 +358,8 @@ static void test_validation(void)
 int main(void)
 {
     test_white_noise();
+    test_gauss_markov();
+    test_random_walk();
     test_waves();
     test_chunking();
     test_seed();

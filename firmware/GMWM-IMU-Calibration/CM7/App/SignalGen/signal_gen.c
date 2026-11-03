@@ -103,13 +103,50 @@ float signal_gen_wave_table(uint32_t phase, const void *params)
     return table->samples[i] + frac * (table->samples[next] - table->samples[i]);
 }
 
+/* Noise processes: each returns its next sample and advances its state */
+static double noise_white(signal_gen_t *sg)
+{
+    return (double) (sg->cfg.white_std * gauss(sg));
+}
+
+/* Sum of the Gauss-Markov processes in cfg.gm */
+static double noise_gm(signal_gen_t *sg)
+{
+    double sum = 0.0;
+    for (uint32_t k = 0U; k < SIGNAL_GEN_GM_COUNT; k++)
+    {
+        sum += sg->gm_x[k];
+        sg->gm_x[k] = sg->gm_phi[k] * sg->gm_x[k] + sg->gm_v[k] * (double) gauss(sg);
+    }
+    return sum;
+}
+
+static double noise_rw(signal_gen_t *sg)
+{
+    double x = sg->rw;
+    sg->rw += (double) sg->cfg.rw_step * (double) gauss(sg);
+    return x;
+}
+
+static bool gm_valid(const signal_gen_gm_t *gm)
+{
+    return (gm->std == 0.0f) || ((gm->std > 0.0f) && (gm->tc_s > 0.0f));
+}
+
 bool signal_gen_init(signal_gen_t *sg, const signal_gen_config_t *cfg)
 {
     /* Written as !(valid) so NaN settings are rejected too */
     if (!(cfg->fs_hz > 0.0f) || !(cfg->freq_hz >= 0.0f) || !(cfg->freq_hz < 0.5f * cfg->fs_hz) || (cfg->wave == NULL) ||
-        !(cfg->white_std >= 0.0f))
+        !(cfg->white_std >= 0.0f) || !(cfg->rw_step >= 0.0f))
     {
         return false;
+    }
+    for (uint32_t k = 0U; k < SIGNAL_GEN_GM_COUNT; k++)
+    {
+        if (!gm_valid(&cfg->gm[k]))
+        {
+            return false;
+        }
     }
 
     sg->cfg   = *cfg;
@@ -126,6 +163,19 @@ bool signal_gen_init(signal_gen_t *sg, const signal_gen_config_t *cfg)
     sg->spare     = 0.0f;
     sg->has_spare = false;
     sg->clipped   = 0U;
+
+    /* Gauss-Markov states start stationary, so there is no start-up transient */
+    bool gm_on = (cfg->noise & SIGNAL_GEN_NOISE_GM) != 0U;
+    for (uint32_t k = 0U; k < SIGNAL_GEN_GM_COUNT; k++)
+    {
+        const signal_gen_gm_t *gm = &cfg->gm[k];
+
+        double phi    = (gm->std > 0.0f) ? exp(-1.0 / ((double) gm->tc_s * (double) cfg->fs_hz)) : 0.0;
+        sg->gm_phi[k] = phi;
+        sg->gm_v[k]   = (double) gm->std * sqrt(1.0 - phi * phi);
+        sg->gm_x[k]   = gm_on ? (double) gm->std * (double) gauss(sg) : 0.0;
+    }
+    sg->rw = 0.0;
     return true;
 }
 
@@ -142,12 +192,20 @@ void signal_gen_fill(signal_gen_t *sg, uint16_t *clean, uint16_t *noisy, uint32_
         }
         if (noisy != NULL)
         {
-            float noise = 0.0f;
+            double noise = 0.0;
             if ((sg->cfg.noise & SIGNAL_GEN_NOISE_WHITE) != 0U)
             {
-                noise += sg->cfg.white_std * gauss(sg);
+                noise += noise_white(sg);
             }
-            noisy[i] = to_code(sg, s + noise);
+            if ((sg->cfg.noise & SIGNAL_GEN_NOISE_GM) != 0U)
+            {
+                noise += noise_gm(sg);
+            }
+            if ((sg->cfg.noise & SIGNAL_GEN_NOISE_RW) != 0U)
+            {
+                noise += noise_rw(sg);
+            }
+            noisy[i] = to_code(sg, s + (float) noise);
         }
     }
 }

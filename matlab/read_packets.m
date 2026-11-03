@@ -20,6 +20,8 @@ end
 function waitForMagic(device)
 last4 = zeros(1, 4);
 while ~isequal(last4, [0xDE 0xC0 0xDE 0xC0])
-    last4 = [last4(2:4), read(device, 1, "uint8")];
+    b = read(device, 1, "uint8");
+    assert(~isempty(b), "No data from the board: is it streaming, and did the PC stay awake?");
+    last4 = [last4(2:4), b];
 end
 end
