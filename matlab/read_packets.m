@@ -1,10 +1,11 @@
 function packets = read_packets(port, count)
-% Read count packets from the H7's stream over the ST-LINK virtual COM port.
-% Returns a struct array with the header fields source and seq, and payload
-% as raw bytes for the caller to decode. Packet format is in
-% firmware/common/stream/stream_packet.h.
+% Read count packets from a board's stream: the Nucleo over the ST-LINK virtual
+% COM port, or the XIAO over USB (which ignores the baud rate). Returns a struct
+% array with the header fields source and seq, and payload as raw bytes for the
+% caller to decode. Packet format is in firmware/common/stream/stream_packet.h.
 
 device = serialport(port, 921600);
+pause(0.5); % packets a board buffered while the port was closed arrive at once; drop them
 flush(device);
 
 packets = struct("source", cell(1, count), "seq", [], "payload", []);

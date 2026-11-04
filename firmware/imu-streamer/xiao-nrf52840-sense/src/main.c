@@ -1,10 +1,16 @@
 /**
  ******************************************************************************
  * @file    main.c
- * @brief   Bring-up check: prints the LSM6DS3TR-C's WHO_AM_I once a second and blinks the red LED.
+ * @brief   The data flow, end to end:
+ *
+ *            LSM6DS3TR-C FIFO --i2c0--> imu sampler --blocks--> stream --USB CDC ACM--> PC
+ *
+ *          The red LED toggles with every block sent. It stays on when the IMU
+ *          could not be set up, and the reason is printed to the same USB port.
  ******************************************************************************
  */
-#include "Imu/lsm6ds3trc.h"
+#include "Imu/imu_sampler.h"
+#include "stream_packet.h"
 
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
@@ -16,27 +22,31 @@ int main(void)
 {
     gpio_pin_configure_dt(&red_led, GPIO_OUTPUT_INACTIVE);
 
-    if (lsm6_begin() < 0)
+    int err = imu_sampler_start();
+    if (err < 0)
     {
-        printk("LSM6DS3TR-C: i2c0 is not ready\n");
-        return 0;
+        gpio_pin_set_dt(&red_led, 1);
+        for (;;)
+        {
+            /* Repeated, since the PC usually opens the port after boot */
+            printk("LSM6DS3TR-C: setup failed (%d)\n", err);
+            k_msleep(1000);
+        }
     }
 
     for (;;)
     {
-        const int who_am_i = lsm6_read(LSM6_REG_WHO_AM_I);
+        imu_block_t block;
 
-        if (who_am_i < 0)
+        /* A failed read is retried at the next poll. One that lost samples restarts the FIFO
+         * and skips a seq, so the PC sees it. No printk here: text between packets costs
+         * the PC the packet before it. */
+        if (imu_sampler_get_block(&block) > 0)
         {
-            printk("LSM6DS3TR-C: no answer on i2c0 (%d)\n", who_am_i);
+            stream_send(STREAM_SRC_LSM6DS3TRC, block.seq, &block.payload, sizeof(block.payload));
+            gpio_pin_toggle_dt(&red_led);
+            continue; /* the FIFO may hold another block */
         }
-        else
-        {
-            printk("LSM6DS3TR-C: WHO_AM_I = 0x%02X (%s)\n", who_am_i,
-                   who_am_i == LSM6_WHO_AM_I_VALUE ? "ok" : "expected 0x6A");
-        }
-
-        gpio_pin_toggle_dt(&red_led);
-        k_msleep(1000);
+        k_msleep(IMU_POLL_MS);
     }
 }

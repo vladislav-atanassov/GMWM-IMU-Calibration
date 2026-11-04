@@ -1,0 +1,7 @@
+/*
+ * The CDC ACM TX FIFO defaults to 1 KB, and with no flow control a full FIFO
+ * drops bytes. 8 KB holds 20 stream packets, so a burst after a slow poll fits.
+ */
+&board_cdc_acm_uart {
+	tx-fifo-size = <8192>;
+};

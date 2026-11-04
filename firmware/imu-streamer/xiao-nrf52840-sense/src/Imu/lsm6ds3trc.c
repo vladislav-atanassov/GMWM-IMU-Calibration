@@ -31,3 +31,13 @@ int lsm6_read(uint8_t reg)
 
     return err < 0 ? err : value;
 }
+
+int lsm6_write(uint8_t reg, uint8_t value)
+{
+    return i2c_reg_write_byte_dt(&imu, reg, value);
+}
+
+int lsm6_read_burst(uint8_t reg, void *data, size_t length)
+{
+    return i2c_burst_read_dt(&imu, reg, data, length);
+}

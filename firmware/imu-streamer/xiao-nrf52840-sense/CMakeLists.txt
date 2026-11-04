@@ -26,6 +26,7 @@ target_include_directories(app PRIVATE
 
 target_sources(app PRIVATE
     src/main.c
+    src/Imu/imu_sampler.c
     src/Imu/lsm6ds3trc.c
     src/Stream/stream_port.c
     ${FIRMWARE_COMMON_DIR}/stream/stream_packet.c

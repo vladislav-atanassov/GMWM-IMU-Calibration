@@ -29,8 +29,12 @@ extern "C"
 
 #define STREAM_MAGIC 0xC0DEC0DEU
 
-/* One ID per payload format, so IDs from different boards never collide */
-#define STREAM_SRC_EMULATOR 1U /* payload: frames of [clean, noisy] uint16 ADC codes */
+/* One ID per payload format, so IDs from different boards never collide. Payloads:
+ *   EMULATOR    frames of [clean, noisy] uint16 ADC codes
+ *   LSM6DS3TRC  uint8 CTRL1_XL, uint8 CTRL2_G, int16 temperature, then frames of
+ *               [gx gy gz ax ay az] int16 raw codes; imu_payload_t in the XIAO's imu_sampler.h */
+#define STREAM_SRC_EMULATOR   1U
+#define STREAM_SRC_LSM6DS3TRC 2U
 
 /* Blocks until the whole packet is sent */
 void stream_send(uint16_t source, uint32_t seq, const void *payload, uint16_t length);

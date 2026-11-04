@@ -3,7 +3,14 @@
  * @file    stream_port.c
  * @brief   Stream packets over USB CDC ACM.
  *
- *          The console shares this port for now, so printk() text mixes with packets.
+ *          Never blocks: with no flow control, bytes that do not fit the CDC ACM
+ *          TX FIFO (sized in app.overlay) are dropped, for example while no PC
+ *          has the port open. The PC sees that as a seq gap.
+ *
+ *          The console shares this port. The PC skips text that is not a packet,
+ *          but it also drops the packet just before the text, since it checks that
+ *          a packet is followed by the next one's magic. So printk() only before
+ *          streaming starts.
  ******************************************************************************
  */
 #include "stream_port.h"
