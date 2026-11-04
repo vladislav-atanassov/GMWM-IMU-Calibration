@@ -1,8 +1,14 @@
-function p0 = gmwm_start(nu2hat, tau, v, types)
+function p0 = gmwm_start(nu2hat, tau, v, types, k)
 % Starting values for gmwm_fit from the wavelet variance alone. The AR1
-% correlation times are tried on a grid of scales; the lowest objective wins
+% correlation times are tried on a grid of scales, and the k (default 8) with
+% the lowest objective come back as rows, best first, since the fit's answer
+% depends on where it starts
+if nargin < 5
+    k = 8;
+end
 grid = nchoosek(tau(2:2:end-1)', sum(types == "AR1")); % rows of increasing tc [samples]
-best = inf;
+P   = [];
+obj = [];
 for row = 1:size(grid, 1)
     p = [];
     a = 0;
@@ -23,10 +29,9 @@ for row = 1:size(grid, 1)
                 p(end+1:end+2) = [phi, 4 * nu2hat(tau == tc) * (1 - phi^2)];
         end
     end
-    obj = sum((nu2hat - wv_theory(tau, types, p)).^2 ./ v);
-    if obj < best
-        best = obj;
-        p0 = p;
-    end
+    P(end+1, :) = p; %#ok<AGROW>
+    obj(end+1) = sum((nu2hat - wv_theory(tau, types, p)).^2 ./ v); %#ok<AGROW>
 end
+[~, order] = sort(obj);
+p0 = P(order(1:min(k, end)), :);
 end

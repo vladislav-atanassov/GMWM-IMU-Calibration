@@ -27,14 +27,25 @@ for type = types
 end
 end
 
-% The closed form cancels when m (1 - phi) << 1, so small scales use the lag sum
+% The closed form's numerator m (1 - phi^2) - 3 phi + 4 phi^(m+1) - phi^(2m+1) is about
+% (2/3) (m l)^3 with l = -log(phi), out of terms of size 1, so it cancels when m l is small:
+% whatever the scale, once the correlation time is long next to it. There it sums the
+% numerator's Taylor series in l instead, whose terms 0 to 2 vanish exactly and the rest
+% do not cancel
 function nu2 = ar1(tau, phi, v2)
 m = tau / 2;
-if m > 4096
-    nu2 = 2 * v2 * (m*(1 - phi^2) - 3*phi + 4*phi^(m+1) - phi^(2*m+1)) / (tau^2 * (1 - phi)^2 * (1 - phi^2));
+l = -log(phi);
+if m * l > 0.1
+    num = -m * expm1(-2*l) - 3*phi + 4*phi^(m+1) - phi^(2*m+1);
 else
-    h = (1:2*m-1)';
-    R = (h <= m) .* (2*m - 3*h) - (h > m) .* (2*m - h); % autocorrelation of the Haar filter
-    nu2 = 2 * v2 * sum(R .* expm1(h * log(phi))) / (tau^2 * -expm1(2 * log(phi)));
+    num = 0;
+    for k = 3:40
+        term = (-1)^k / factorial(k) * (4*((m+1)*l)^k - ((2*m+1)*l)^k - m*(2*l)^k - 3*l^k);
+        num = num + term;
+        if abs(term) <= 1e-17 * abs(num)
+            break;
+        end
+    end
 end
+nu2 = 2 * v2 * num / (tau^2 * expm1(-l)^2 * -expm1(-2*l)); % / (tau^2 (1 - phi)^2 (1 - phi^2))
 end
