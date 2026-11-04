@@ -1,0 +1,85 @@
+imu_static_01, 10080-34200 s: 2508480 samples at 104 Hz, 19 scales up to 5041 s
+
+gyro x: objective 1945, 14 s
+  WN   density       3.498 mdps/sqrt(Hz)
+  GM1  tc             1.55 s
+  GM1  std            2.83 mdps
+  GM2  tc            25.82 s
+  GM2  std           3.473 mdps
+  RW   K           0.05956 mdps/sqrt(s)
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 433.569642 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 566.176587 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 566.176587 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 566.176587 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 433.569642 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 433.569642 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 566.176587 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 566.176587 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 566.176587 
+
+
+gyro y: objective 433.6, 45 s
+  WN   density   1.198e-05 mdps/sqrt(Hz)
+  GM1  tc         0.005077 s
+  GM1  std           20.25 mdps
+  GM2  tc            3.252 s
+  GM2  std            2.19 mdps
+  RW   K           0.08206 mdps/sqrt(s)
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 571.971818 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 571.971818 
+
+ 
+Exiting: Maximum number of function evaluations has been exceeded
+         - increase MaxFunEvals option.
+         Current function value: 1770.197760 
+
+
+gyro z: objective 572, 18 s
+  WN   density   3.187e-07 mdps/sqrt(Hz)
+  GM1  tc         0.005449 s
+  GM1  std           21.82 mdps
+  GM2  tc            3.395 s
+  GM2  std           2.516 mdps
+  RW   K           0.07212 mdps/sqrt(s)

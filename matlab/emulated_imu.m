@@ -46,7 +46,7 @@ end
 
 figure;
 hold on;
-t2 = unique(2 * round(2.^(0:0.05:J-1)))'; % even scales: the AR1 lag sum needs whole samples
+t2 = 2.^(1:0.05:J)'; % model curves between the scales too
 parts = {"WN", p(1), [0.47 0.67 0.19], "white noise";
          "AR1", p(2:3), [0.93 0.69 0.13], "Gauss-Markov 1";
          "AR1", p(4:5), [0.30 0.75 0.93], "Gauss-Markov 2";

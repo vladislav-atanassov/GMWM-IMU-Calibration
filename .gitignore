@@ -51,3 +51,7 @@ codegen/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Experiments: run.py's decoded data windows, and a run that failed before replacing out/
+data/cache/
+experiments/*/out.tmp/

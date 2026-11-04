@@ -6,9 +6,11 @@ Hardware: a NUCLEO-H755ZI-Q (STM32H755) for the step 1 warm-up, then a Seeed Stu
 
 ## Status
 
-Step 1 is done. The board emulates a static MEMS IMU, and from one 19 min recording GMWM recovers the white noise within 0.2% and both Gauss-Markov standard deviations within 5%. The correlation times (14% and 45% low) and the random walk (29% low) are within the normal spread for one recording this long, so the real IMU will need longer or repeated logs.
+The Nucleo emulates a static MEMS IMU. From one 19 min recording, GMWM recovers the white noise within 0.2% and both Gauss-Markov standard deviations within 5%. The correlation times sit 14% and 45% low, and the random walk 29% low, within the spread of one recording this long. A real IMU needs a longer log, or several logs.
 
-Step 2 is in progress. The XIAO streams the LSM6DS3TR-C's raw gyro, accelerometer, and temperature, and `python -m gmwm record` saves the stream for MATLAB.
+The XIAO streams the LSM6DS3TR-C's raw gyro, accelerometer, and temperature. `python -m gmwm record` saves that stream for MATLAB.
+
+Each analysis is an experiment in [experiments/](experiments/), with its data, code, and outputs. [RESULTS.md](RESULTS.md) compares them side by side.
 
 ![Controller setup: TIM6 triggers DAC1 and ADC2, DMA moves samples through AXI SRAM, and blocks stream over USART3 and the ST-LINK to the PC](assets/controller-setup.excalidraw.svg)
 
@@ -16,8 +18,8 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 
 ## Steps
 
-1. **Emulated IMU** (done). The DAC generates a constant level and the same level with a known IMU noise model added: white noise, two Gauss-Markov processes, and a random walk, at the levels of an LSM6DS3TR-C gyro. The ADC samples both and streams them to MATLAB, where GMWM has to recover the model.
-2. **Stream the IMU** (in progress). Firmware for the XIAO that reads the LSM6DS3TR-C's raw gyro, accelerometer, and temperature and streams them to the PC over USB.
+1. **Emulated IMU.** The DAC generates a constant level and the same level with a known IMU noise model added: white noise, two Gauss-Markov processes, and a random walk, at the levels of an LSM6DS3TR-C gyro. The ADC samples both and streams them to MATLAB, where GMWM has to recover the model.
+2. **Stream the IMU.** Firmware for the XIAO that reads the LSM6DS3TR-C's raw gyro, accelerometer, and temperature and streams them to the PC over USB.
 3. **Real IMU data.** Record long, static IMU logs and fit GMWM models to the gyro and accelerometer.
 4. **Kalman calibration.** Turn the fitted model into Kalman filter noise parameters and test the filter.
 5. **Compare.** Compare IMUs and calibration methods, such as GMWM against the Allan variance.
@@ -57,7 +59,11 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 │   ├── emulated_imu.m                fits GMWM to the emulated IMU: recorded or simulated
 │   ├── read_imu_log.m                reads an IMU log from gmwm record
 │   └── view_imu_log.m                plots an IMU log and its wavelet variance
-├── data/                             recordings
+├── experiments/                      one folder per experiment: question, config, script, outputs
+│   ├── run.py                        runs an experiment and rebuilds RESULTS.md
+│   └── lib/                          helpers the experiment scripts call
+├── RESULTS.md                        every experiment's results side by side (generated)
+├── data/                             recordings; README.md lists them with checksums
 ├── tools/
 │   └── gmwm/                         Python CLI: build and flash the Nucleo; monitor and record either board
 ├── assets/
@@ -172,5 +178,7 @@ For `"board"`, set `file` to a new name and stop the monitor (the COM port has o
 The experiment settings (sample rate, signal, noise processes, seed) are in `firmware/imu-emulator/nucleo-h755zi-q/CM7/App/SignalGen/signal_gen_config.h`. Change them, then flash again.
 
 ## Code style
+
+The pre-commit hook also runs `python experiments/run.py --check`. That blocks a commit when a final experiment's outputs do not follow from its config, code or data, an experiment README lacks its title or conclusion, or `RESULTS.md` needs rebuilding (see [experiments/README.md](experiments/README.md#before-committing)).
 
 `.clang-format` applies to the hand-written code only (`CM7/App/`, `firmware/common/`, and the XIAO's `src/` and `include/`), so the CubeMX code stays as generated. With the hook on, a commit that stages unformatted files there is rejected, and the hook prints the command that fixes them. If clang-format is not on your PATH, point the hook at it with `git config hooks.clangFormat <path-to-clang-format>`.

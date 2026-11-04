@@ -1,0 +1,8 @@
+{
+  "status": "draft",
+  "method": "GMWM, Haar (this repo)",
+  "dataset": "imu_static_01",
+  "window_h": [2.8, 9.5],
+  "sensor": "gyro",
+  "model": ["WN", "GM", "GM", "RW"]
+}

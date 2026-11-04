@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-04T23:57:14+02:00",
+  "seconds": 100.5,
+  "base_commit": "abc1d1903c7b33a0e699694679410807db459c52",
+  "inputs": {
+    "experiments/E01-imu01-haar-gmwm/config.json": "08c6bd54579f486f69b82e919cea0a1135d9853fde83dc4a2aaa9e67be984fd2",
+    "experiments/E01-imu01-haar-gmwm/main.m": "b394c269782223d5c9381daf73d1ba63ae9490af58176a67dc62b532efe89c1f",
+    "experiments/lib/exp_config.m": "bb318518f202b43062ac9b1908a863b81d094b75d8df1e74f466cbf8945ae743",
+    "experiments/lib/exp_data.m": "b96f8aefde0d65d3603c0d553b6d9dd3e9b72e432cc0f12afd664ac651cd4d63",
+    "experiments/lib/exp_figure.m": "9db0f7d0d1034d80dc0058e941cb80d69977cda38ce1d7fcf8fca305854e8a0a",
+    "experiments/lib/exp_finish.m": "d9951eea22f5a0ab33c8f6003b13d3214d10f0da187ba52867b6626d9d370e75",
+    "experiments/lib/exp_path.m": "36e48a58193efdc7414b078520b993d35dcc5850e3df6246c23547e1aafffc6e",
+    "experiments/lib/exp_write.m": "44a769742e51b18cd741dc060e576e24955f64df0cbdbb307b9e1532fc042ca0",
+    "matlab/wavelets/gmwm_fit.m": "88084b8ce37692b95ff6d1d8bcd36b40943f125aaab53fcede409f9d999a8b03",
+    "matlab/wavelets/gmwm_start.m": "d3b36aca0c2d513048f0a699315b1054d9d50c95f38cfee976fe16c0497fa216",
+    "matlab/wavelets/haar_wvar.m": "020b88fd5813cd100cba3dc55bce40414a12ce3521422208d971b8fa72fcfa24",
+    "matlab/wavelets/wv_theory.m": "ec133364c33540bfe245974c30211dfe7e82f50d41f285cc11388260d9a171c2",
+    "data/imu_static_01.bin": "0654d130f12efd50e960e3fb1c021c876a47f3224b1ea98a5d4ff90737831bc0"
+  }
+}
