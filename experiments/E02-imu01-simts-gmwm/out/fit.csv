@@ -1,0 +1,4 @@
+sensor,axis,objective,scales,seconds
+gyro,x,13009.1427,21,3.7
+gyro,y,17.09947309,21,3.75
+gyro,z,26.30329252,21,3.77

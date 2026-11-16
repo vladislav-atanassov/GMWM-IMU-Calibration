@@ -1,0 +1,4 @@
+sensor,axis,statistic,df,p_value,bootstrap
+gyro,x,737105.6834,15,0,200
+gyro,y,4119.856627,15,0,200
+gyro,z,2715.377074,15,0,200

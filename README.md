@@ -2,7 +2,7 @@
 
 Use the Generalized Method of Wavelet Moments (GMWM) to identify an IMU's stochastic error model from real data. Then turn that model into the noise parameters of a Kalman filter.
 
-Hardware: a NUCLEO-H755ZI-Q (STM32H755) for the step 1 warm-up, then a Seeed Studio XIAO nRF52840 Sense and its LSM6DS3TR-C 6-axis IMU. Firmware in C, analysis in MATLAB.
+Hardware: a NUCLEO-H755ZI-Q (STM32H755) for the step 1 warm-up, then a Seeed Studio XIAO nRF52840 Sense and its LSM6DS3TR-C 6-axis IMU. Firmware in C, analysis in MATLAB, and in R for SMAC-Group's reference GMWM (simts).
 
 ## Status
 
@@ -64,6 +64,8 @@ TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on t
 │   └── lib/                          helpers the experiment scripts call
 ├── RESULTS.md                        every experiment's results side by side (generated)
 ├── data/                             recordings; README.md lists them with checksums
+├── external/
+│   └── simts/                        submodule: SMAC-Group's R package with the reference GMWM
 ├── tools/
 │   └── gmwm/                         Python CLI: build and flash the Nucleo; monitor and record either board
 ├── assets/
@@ -79,11 +81,13 @@ You need:
 - nRF Connect SDK v3.2.1 and its toolchain, for the XIAO. The nRF Connect for VS Code extension installs both (to `C:/ncs` by default), and it works in Cursor too
 - Python 3.10 or newer
 - MATLAB R2019b or newer, for `serialport`
+- R 4.5 and Rtools45, for the experiments that use simts (see [experiments/README.md](experiments/README.md#r))
 - clang-format 21 or newer, for the pre-commit hook
 
 Once per clone:
 
 ```sh
+git submodule update --init            # fetches external/simts
 pip install -e .                       # installs the gmwm CLI and pyserial
 git config core.hooksPath .githooks    # turns on the format check
 ```

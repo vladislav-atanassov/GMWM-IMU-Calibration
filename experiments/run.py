@@ -13,13 +13,17 @@ it must write.
 import argparse
 import csv
 import datetime
+import functools
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 from pathlib import Path
 
@@ -35,6 +39,7 @@ INDEX_START, INDEX_END = "<!-- index:start -->", "<!-- index:end -->"
 # Entry script name -> command; the working directory is the experiment folder
 ENTRIES = {
     "main.m": lambda: [_tool("matlab"), "-batch", f"addpath('{LIB.as_posix()}'); main"],
+    "main.R": lambda: [_rscript(), "--vanilla", "-e", f"source('{(LIB / 'exp.R').as_posix()}'); source('main.R')"],
 }
 
 # Only what varies from row to row: the experiment, its data and its method are in config.json
@@ -61,8 +66,51 @@ def _tool(name: str) -> str:
     return path
 
 
-def _git(*args: str) -> str:
-    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+def _rscript() -> str:
+    """Rscript from PATH, or else from the R install the Windows registry names (the R installer
+    does not add itself to PATH)."""
+    path = shutil.which("Rscript")
+    if path:
+        return path
+    if sys.platform == "win32":
+        import winreg
+        for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            try:
+                with winreg.OpenKey(hive, r"SOFTWARE\R-core\R") as key:
+                    exe = Path(winreg.QueryValueEx(key, "InstallPath")[0]) / "bin" / "Rscript.exe"
+                if exe.is_file():
+                    return str(exe)
+            except OSError:
+                pass
+    raise ExperimentError("Rscript is not on PATH, and no R install is registered")
+
+
+def _git(*args: str, repo: Path = ROOT) -> str:
+    env = None if repo == ROOT else _submodule_env()
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True,
+                          env=env).stdout.strip()
+
+
+@functools.cache
+def _submodule_env() -> dict:
+    """The environment for git in a submodule, without the variables that tie git to one
+    repository, as git itself runs commands in submodules. Git sets some of them while it runs a
+    hook, such as GIT_INDEX_FILE for pre-commit, and they would point git in the submodule at
+    this repository's index."""
+    local = subprocess.run(["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True,
+                           check=True).stdout.split()
+    keep = {"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"}  # git -c options, which submodules inherit
+    return {k: v for k, v in os.environ.items() if k not in local or k in keep}
+
+
+def _is_submodule(path: Path) -> bool:
+    return path != ROOT and (path / ".git").exists()
+
+
+def _submodule_state(path: Path) -> str:
+    """A submodule's checked-out commit, with -dirty when its files differ from that commit."""
+    commit = _git("rev-parse", "HEAD", repo=path)
+    return commit + ("-dirty" if _git("status", "--porcelain", repo=path) else "")
 
 
 def _sha256(path: Path) -> str:
@@ -198,17 +246,70 @@ def prepare_data(cfg: dict) -> Path:
     return head_path
 
 
+# ---- R packages from submodules ----
+
+def prepare_r_package(path: Path):
+    """Installs the R package in submodule path, built from its checked-out commit, unless the
+    installed one already is. The install records the commit as RemoteSha in its DESCRIPTION,
+    which exp_package() in lib/exp.R checks before main.R uses it."""
+    state = _submodule_state(path)
+    if state.endswith("-dirty"):
+        raise ExperimentError(f"{_rel(path)} has local changes; commit them in the submodule, or revert them, "
+                              "so the run names the exact code it used")
+    desc = (path / "DESCRIPTION").read_text(encoding="utf-8")
+    package = re.search(r"^Package:\s*(\S+)", desc, re.MULTILINE).group(1)
+    rscript = _rscript()
+    probe = f"cat(tryCatch(packageDescription('{package}')$RemoteSha, error = function(e) ''))"
+    installed = subprocess.run([rscript, "--vanilla", "-e", probe], capture_output=True, text=True).stdout.strip()
+    if installed == state:
+        return
+
+    print(f"[*] Building R package {package} from {_rel(path)} at {state[:7]}; the first build takes a few minutes")
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = subprocess.run(["git", "archive", "--format=tar", "HEAD"], cwd=path, capture_output=True,
+                                 check=True, env=_submodule_env()).stdout
+        src = Path(tmp) / package
+        src.mkdir()
+        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+            # The data filter (Python 3.12, and 3.10.12 on) refuses links and paths out of src
+            tar.extractall(src, **({"filter": "data"} if hasattr(tarfile, "data_filter") else {}))
+        url = _git("config", "-f", ".gitmodules", f"submodule.{_rel(path)}.url")
+        with open(src / "DESCRIPTION", "a", encoding="utf-8", newline="\n") as f:
+            f.write(("" if desc.endswith("\n") else "\n") + f"RemoteType: git\nRemoteUrl: {url}\nRemoteSha: {state}\n")
+        r = Path(rscript).with_name("R.exe" if sys.platform == "win32" else "R")
+        build = subprocess.run([str(r), "CMD", "INSTALL", "--no-docs", "--no-multiarch", str(src)],
+                               capture_output=True, text=True)
+    if build.returncode != 0:
+        raise ExperimentError(f"R CMD INSTALL of {package} failed:\n{build.stdout[-3000:]}{build.stderr[-3000:]}")
+    print(f"[+] Installed {package} at {state[:7]}")
+
+
 # ---- What a run depends on ----
 
+def named_paths(exp: Path) -> list[Path]:
+    """Every repository path the experiment's entry script names with exp_path(...)."""
+    paths = []
+    for entry in ENTRIES:
+        if (exp / entry).is_file():
+            text = (exp / entry).read_text(encoding="utf-8")
+            paths += [ROOT / p for p in re.findall(r"""exp_path\(\s*["']([^"']+)["']""", text)]
+    return paths
+
+
+def submodules(exp: Path) -> list[Path]:
+    """The submodules the entry script names, such as external/simts."""
+    return [p for p in named_paths(exp) if _is_submodule(p)]
+
+
 def code_files(exp: Path) -> list[Path]:
-    """The code a run depends on: the experiment's entry script, the helpers in lib/, and every
-    repository path the entry script names with exp_path(...)."""
-    roots = [LIB]
+    """The code a run depends on: the experiment's entry script, the helpers in lib/ in its
+    language, and every repository path the entry script names with exp_path(...), except
+    submodules, which inputs() pins by commit instead."""
+    roots = [p for p in named_paths(exp) if not _is_submodule(p)]
     for entry in ENTRIES:
         if (exp / entry).is_file():
             roots.append(exp / entry)
-            text = (exp / entry).read_text(encoding="utf-8")
-            roots += [ROOT / p for p in re.findall(r"""exp_path\(\s*["']([^"']+)["']""", text)]
+            roots += LIB.rglob("*" + Path(entry).suffix)
     files = set()
     for root in roots:
         candidates = [root] if root.is_file() else root.rglob("*")
@@ -218,10 +319,12 @@ def code_files(exp: Path) -> list[Path]:
 
 
 def inputs(exp: Path) -> dict:
-    """Everything a run's outputs follow from, by path: SHA-256 of its config and code, and the
-    dataset's checksum as data/README.md declares it (run.py checks the file against it)."""
+    """Everything a run's outputs follow from, by path: SHA-256 of its config and code, the
+    commit of each submodule it names, and the dataset's checksum as data/README.md declares it
+    (run.py checks the file against it)."""
     files = [exp / "config.json"] + code_files(exp)
     found = {_rel(p): _text_sha256(p) for p in files}
+    found.update({_rel(p): _submodule_state(p) for p in submodules(exp)})
     row = datasets().get(_config(exp).get("dataset"))
     if row:
         found[f"data/{row['file']}"] = row["sha-256"]
@@ -298,6 +401,10 @@ def run(exp: Path, force: bool):
             raise ExperimentError(f"{_rel(out)} already holds this final run; --force runs it again")
 
     head_path = prepare_data(cfg)
+    if entry == "main.R":
+        for path in submodules(exp):
+            if (path / "DESCRIPTION").is_file():
+                prepare_r_package(path)
 
     stage = exp / "out.tmp"
     if stage.exists():

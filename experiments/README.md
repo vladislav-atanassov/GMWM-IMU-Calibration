@@ -10,6 +10,7 @@ side by side.
 | ID | Experiment | Data | Status | Last run | Conclusion |
 | --- | --- | --- | --- | --- | --- |
 | [E01](E01-imu01-haar-gmwm/) | E01: Haar GMWM from step 1 on the real gyro | imu_static_01, 2.8 to 9.5 h | draft | 2026-11-04, current | White noise is 3.3 to 3.6 mdps/sqrt(Hz) on every axis, under the datasheet's typical 5. White noise + 2 Gauss-Markov + random walk leaves gy and gz outside their 95% intervals between about 20 and 500 s. |
+| [E02](E02-imu01-simts-gmwm/) | E02: simts GMWM on the real gyro, with intervals and a fit test | imu_static_01, 2.8 to 9.5 h | draft | 2026-11-06, current | simts matches E01's white noise on gy and gz to about 1% (3.30 and 3.64 mdps/sqrt(Hz)), but its weights let gx's 34 Hz tone set gx's (4.56). The J test rejects white noise + 2 Gauss-Markov + random walk on every axis (p ≈ 0), so the model needs another term whichever implementation fits it. |
 <!-- index:end -->
 
 ## Run
@@ -24,13 +25,15 @@ python experiments/run.py --check    # is everything ready to commit?
 ```
 
 It needs the `gmwm` package installed (`pip install -e .`), since it reads the logs with the
-same tables as the recorder, and MATLAB for `main.m` experiments. The datasets go in `data/`
-(see [data/README.md](../data/README.md)).
+same tables as the recorder, MATLAB for `main.m` experiments, and R for `main.R` experiments
+(see [R](#r)). The datasets go in `data/` (see [data/README.md](../data/README.md)).
 
 For each run, `run.py`:
 
 1. Reads `config.json` and finds the dataset in `data/README.md`, checking its SHA-256.
 2. Decodes the window once into `data/cache/`, so every method and language reads the same samples.
+   For `main.R`, it also installs each R package submodule the script names, built from the
+   submodule's checked-out commit, unless the installed copy already is.
 3. Runs the entry script from the experiment folder, with its outputs going to `out.tmp/`
    and its console output to `log.txt`.
 4. Checks the outputs' columns and units, adds `run.json`, then replaces `out/`. A failed run
@@ -39,8 +42,9 @@ For each run, `run.py`:
 
 `run.json` holds only what the run alone knows: when it ran, how long it took, the commit it started
 from, and `inputs`, the SHA-256 of everything its outputs follow from: `config.json`, the entry
-script, `lib/`, every path the entry script names with `exp_path(...)`, and the dataset (its checksum
-from `data/README.md`). A run cannot name the commit that will hold it, so `inputs` is what pins
+script, the helpers in `lib/` in its language, every path the entry script names with `exp_path(...)`,
+and the dataset (its checksum from `data/README.md`). A submodule it names, such as `external/simts`,
+is pinned by its commit instead, with `-dirty` when its files differ from that commit. A run cannot name the commit that will hold it, so `inputs` is what pins
 it: once those files are committed, they say exactly which code and data made the outputs. That is
 also how `--check` knows when outputs are stale.
 
@@ -66,7 +70,7 @@ mentions committing.
 E01-imu01-haar-gmwm/
 ├── README.md      question, setup, results, conclusion
 ├── config.json    the run's settings
-├── main.m         the entry script
+├── main.m         the entry script, or main.R
 └── out/           written by run.py; committed
     ├── params.csv     fitted parameters
     ├── wv.csv         wavelet variance: measured, its 95% interval, and the fitted model's
@@ -111,6 +115,29 @@ MATLAB (`main.m`, helpers in `lib/`, which `run.py` adds to the path):
 | `addpath(exp_path("matlab/wavelets"))` | a path in the repository |
 | `exp_write("params.csv", T)` | writes a table as CSV, a missing value as an empty field |
 | `exp_figure(fig, "gyro_wv")` | saves `gyro_wv.png`, light theme |
+
+R (`main.R`, helpers in `lib/exp.R`, which `run.py` sources first):
+
+| Helper | |
+| --- | --- |
+| `cfg <- exp_config()` | `config.json` as a list |
+| `d <- exp_data()` | the window: `d$gyro` [dps], `d$accel` [g], `d$fs`, `d$t0`, `d$lost` |
+| `exp_package(exp_path("external/simts"))` | loads the R package in a submodule, after checking it was built from the submodule's commit |
+| `exp_write("params.csv", df)` | writes a data frame as CSV, `NA` as an empty field |
+| `exp_figure("gyro_wv", function() ...)` | draws with base graphics and saves `gyro_wv.png` |
+
+### R
+
+R 4.5 with Rtools45, which compiles the C++ in R packages from source. The R installer does not
+add R to PATH, so `run.py` also finds it through the registry. Install the packages that
+`external/simts` needs once:
+
+```sh
+Rscript -e "install.packages(c('Rcpp','RcppArmadillo','broom','dplyr','magrittr','purrr','tidyr','robcor','scales','rlang','jsonlite'), repos = 'https://cloud.r-project.org')"
+```
+
+`run.py` builds simts itself from `external/simts` (`git submodule update --init` fetches it) and
+records the commit as `RemoteSha` in the installed package, which `exp_package()` checks.
 
 ## Output formats
 

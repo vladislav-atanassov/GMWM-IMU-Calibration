@@ -1,0 +1,26 @@
+simts 0.2.4, built from a716f4d
+imu_static_01, 10080-34200 s: 2508480 samples at 104 Hz, 21 scales up to 20165 s
+
+gyro x: objective 1.301e+04 (simts default 1.307e+04), 4 s; J test 7.371e+05 on 15 df, p = 0
+  WN   density        4.56 [4.555, 4.565] mdps/sqrt(Hz)
+  GM1  tc            27.56 [22.88, 34.63] s
+  GM1  std           3.691 [3.339, 4.042] mdps
+  GM2  tc            482.9 [117.6, Inf] s
+  GM2  std           1.982 [0.05016, 3.914] mdps
+  RW   K           0.05956 [0, 0.1041] mdps/sqrt(s)
+
+gyro y: objective 17.1 (simts default 18.36), 4 s; J test 4120 on 15 df, p = 0
+  WN   density      0.6085 [0, 0.8721] mdps/sqrt(Hz)
+  GM1  tc         0.005467 [0.005303, 0.005632] s
+  GM1  std           19.63 [19.12, 20.15] mdps
+  GM2  tc             4.24 [3.906, 4.635] s
+  GM2  std           2.208 [2.151, 2.265] mdps
+  RW   K           0.06897 [0.05143, 0.08288] mdps/sqrt(s)
+
+gyro z: objective 26.3 (simts default 38.83), 4 s; J test 2715 on 15 df, p = 0
+  WN   density      0.6735 [0.3332, 0.8924] mdps/sqrt(Hz)
+  GM1  tc         0.005925 [0.005779, 0.006073] s
+  GM1  std           21.11 [20.69, 21.53] mdps
+  GM2  tc            5.157 [4.747, 5.643] s
+  GM2  std           2.565 [2.497, 2.632] mdps
+  RW   K           0.05579 [0.039, 0.06859] mdps/sqrt(s)

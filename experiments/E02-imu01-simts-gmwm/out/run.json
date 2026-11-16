@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-06T02:26:08+02:00",
+  "seconds": 595.0,
+  "base_commit": "b697d9c5f054f48ece46e3b12bacf6a45cfe2f89",
+  "inputs": {
+    "experiments/E02-imu01-simts-gmwm/config.json": "3b238fe4e8ffe9b3781bbd4b824ae4ea63a70ddae2b146213c15549c9d762a34",
+    "experiments/E02-imu01-simts-gmwm/main.R": "d3f3a590c2dc43c1c785984ad0b565a80610a11b5f3e4497f9350a42ac8b7d83",
+    "experiments/lib/exp.R": "57e26f8ac30de62aa40136f914cc543c62614b1b5e5eca9e95ad05b803359407",
+    "external/simts": "a716f4d48cd9283b2b8e5456c78cc7c537449951",
+    "data/imu_static_01.bin": "0654d130f12efd50e960e3fb1c021c876a47f3224b1ea98a5d4ff90737831bc0"
+  }
+}
