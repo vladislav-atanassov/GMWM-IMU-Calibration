@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-20T19:29:13+02:00",
+  "seconds": 151.1,
+  "base_commit": "0af0958faba801e49259d517c1e176b4ca6a20ba",
+  "inputs": {
+    "experiments/E03-imu02-full-gmwm/config.json": "af00e339b01ff2580b41ae7c79b4308865875eebff3d81fdfdff41209d5d38ff",
+    "experiments/E03-imu02-full-gmwm/main.m": "6ab12f788fc638b3f696457ebe3ba5b3e305884d2c97b44ac4c904c249c1ae0b",
+    "experiments/lib/exp_config.m": "bb318518f202b43062ac9b1908a863b81d094b75d8df1e74f466cbf8945ae743",
+    "experiments/lib/exp_data.m": "b96f8aefde0d65d3603c0d553b6d9dd3e9b72e432cc0f12afd664ac651cd4d63",
+    "experiments/lib/exp_figure.m": "9db0f7d0d1034d80dc0058e941cb80d69977cda38ce1d7fcf8fca305854e8a0a",
+    "experiments/lib/exp_finish.m": "d9951eea22f5a0ab33c8f6003b13d3214d10f0da187ba52867b6626d9d370e75",
+    "experiments/lib/exp_gyro_wic.m": "18a757b811732ffe4d661b644773b9c65913862734b42b5d1995ff8facd5e1c4",
+    "experiments/lib/exp_path.m": "36e48a58193efdc7414b078520b993d35dcc5850e3df6246c23547e1aafffc6e",
+    "experiments/lib/exp_write.m": "44a769742e51b18cd741dc060e576e24955f64df0cbdbb307b9e1532fc042ca0",
+    "matlab/wavelets/gmwm_fit.m": "1349ca410f29b88b26965c36144d1b123768ee124a7a09b466a7a81854bb6566",
+    "matlab/wavelets/gmwm_log_cov.m": "e07650a01bb50a9c545bfa6658c21f5688cfc585f226c4a5ea2e1552f047888f",
+    "matlab/wavelets/gmwm_physical.m": "2511e7ef3f36456ffb8ad2529f5f0c38d462ca9f1e1eb394397395db2fd2756e",
+    "matlab/wavelets/gmwm_select.m": "f7c1a14f45f3a7a3e300e40182cc55342f689ce6392a14c99767b92b336eb457",
+    "matlab/wavelets/gmwm_start.m": "68d962942e4d6a7867caf19cad9c66ea44d58c77a9fce5f1ab3350b3c423ccf1",
+    "matlab/wavelets/gmwm_whiten.m": "dbe061c2ce8fa30a411d895f73035257b51053f47980620e8e4f4ccdbb98f988",
+    "matlab/wavelets/haar_wvar.m": "eb6364eb0c6542a1efb9b660b577f5aa9a130c27c53fc98d14153e3507549f4f",
+    "matlab/wavelets/wv_theory.m": "ec133364c33540bfe245974c30211dfe7e82f50d41f285cc11388260d9a171c2",
+    "data/imu_static_02.bin": "46bd5d8e542cdb13a6303bf24e4770f7614bfc99c23e6311ab2777ec237e8498"
+  }
+}

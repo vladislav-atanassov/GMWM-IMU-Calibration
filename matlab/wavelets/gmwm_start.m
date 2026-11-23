@@ -1,5 +1,5 @@
 function p0 = gmwm_start(nu2hat, tau, v, types, k)
-% Starting values for gmwm_fit from the wavelet variance alone. The AR1
+% Legacy starting values for callers that supply starts to gmwm_fit. The AR1
 % correlation times are tried on a grid of scales, and the k (default 8) with
 % the lowest objective come back as rows, best first, since the fit's answer
 % depends on where it starts

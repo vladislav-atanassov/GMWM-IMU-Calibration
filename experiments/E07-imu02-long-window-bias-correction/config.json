@@ -1,0 +1,13 @@
+{
+  "status": "draft",
+  "method": "Causal stationary gyro bias correction on the longest screened window",
+  "dataset": "imu_static_02",
+  "window_h": [3.462222222222222, 5.016666666666667],
+  "sensor": "gyro",
+  "sample_rate_hz": 104,
+  "startup_s": 60,
+  "update_s": 10,
+  "horizons_s": [10, 60, 300],
+  "initial_bias_sd_dps": 1,
+  "motion_limit_mg": 1.5
+}

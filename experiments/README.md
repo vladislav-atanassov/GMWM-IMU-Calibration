@@ -9,8 +9,13 @@ side by side.
 <!-- index:start -->
 | ID | Experiment | Data | Status | Last run | Conclusion |
 | --- | --- | --- | --- | --- | --- |
-| [E01](E01-imu01-haar-gmwm/) | E01: Haar GMWM from step 1 on the real gyro | imu_static_01, 2.8 to 9.5 h | draft | 2026-11-04, current | White noise is 3.3 to 3.6 mdps/sqrt(Hz) on every axis, under the datasheet's typical 5. White noise + 2 Gauss-Markov + random walk leaves gy and gz outside their 95% intervals between about 20 and 500 s. |
+| [E01](E01-imu01-haar-gmwm/) | E01: Haar GMWM from step 1 on the real gyro | imu_static_01, 2.8 to 9.5 h | draft | 2026-11-04, historical inputs | White noise is 3.3 to 3.6 mdps/sqrt(Hz) on every axis, under the datasheet's typical 5. White noise + 2 Gauss-Markov + random walk leaves gy and gz outside their 95% intervals between about 20 and 500 s. |
 | [E02](E02-imu01-simts-gmwm/) | E02: simts GMWM on the real gyro, with intervals and a fit test | imu_static_01, 2.8 to 9.5 h | draft | 2026-11-06, current | simts matches E01's white noise on gy and gz to about 1% (3.30 and 3.64 mdps/sqrt(Hz)), but its weights let gx's 34 Hz tone set gx's (4.56). The J test rejects white noise + 2 Gauss-Markov + random walk on every axis (p ≈ 0), so the model needs another term whichever implementation fits it. |
+| [E03](E03-imu02-full-gmwm/) | E03: Full-covariance Haar GMWM on the second static log | imu_static_02, 4 to 5 h | draft | 2026-11-20, current | WIC selected WN + GM + GM + RW on every axis. |
+| [E04](E04-imu01-full-gmwm/) | E04: Full-covariance Haar GMWM on E01's static gyro data | imu_static_01, 2.8 to 9.5 h | draft | 2026-11-20, current | WIC selections by axis are in RESULTS.md. |
+| [E05](E05-imu02-gyro-drift/) | E05: Predict stationary gyro drift with a board-specific noise model | imu_static_02, 4 to 5 h | draft | 2026-11-20, current | GMWM improved the drift prediction score in 11 of 12 axis–horizon comparisons. |
+| [E06](E06-imu02-gyro-bias-correction/) | E06: Does GMWM reduce gyro angle error after bias correction? | imu_static_02, 6.55 to 7.5 h | draft | 2026-11-20, current | GMWM beat every baseline in 6 of 9 axis–horizon comparisons. |
+| [E07](E07-imu02-long-window-bias-correction/) | E07: Repeat the gyro correction test on one longer window | imu_static_02, 3.46222 to 5.01667 h | draft | 2026-11-20, current | GMWM beat every baseline in 9 of 9 axis–horizon comparisons. |
 <!-- index:end -->
 
 ## Run
@@ -19,7 +24,7 @@ From the repository root:
 
 ```sh
 python experiments/run.py E01        # one experiment, by ID or folder name
-python experiments/run.py --all      # every experiment
+python experiments/run.py --all      # experiments without saved outputs
 python experiments/run.py --report   # only rebuild RESULTS.md and the index above
 python experiments/run.py --check    # is everything ready to commit?
 ```
@@ -36,8 +41,8 @@ For each run, `run.py`:
    submodule's checked-out commit, unless the installed copy already is.
 3. Runs the entry script from the experiment folder, with its outputs going to `out.tmp/`
    and its console output to `log.txt`.
-4. Checks the outputs' columns and units, adds `run.json`, then replaces `out/`. A failed run
-   leaves `out/` as it was, and git keeps the outputs of earlier runs.
+4. Checks the outputs' columns and units, adds `run.json`, then publishes `out/`. An
+   experiment ID with an existing `out/` is already used. Give each new run a new ID.
 5. Rebuilds `RESULTS.md` and the index.
 
 `run.json` holds only what the run alone knows: when it ran, how long it took, the commit it started
@@ -45,8 +50,8 @@ from, and `inputs`, the SHA-256 of everything its outputs follow from: `config.j
 script, the helpers in `lib/` in its language, every path the entry script names with `exp_path(...)`,
 and the dataset (its checksum from `data/README.md`). A submodule it names, such as `external/simts`,
 is pinned by its commit instead, with `-dirty` when its files differ from that commit. A run cannot name the commit that will hold it, so `inputs` is what pins
-it: once those files are committed, they say exactly which code and data made the outputs. That is
-also how `--check` knows when outputs are stale.
+it. The generated report labels a run's inputs as historical when they differ from
+the checked-out versions. Its outputs still describe the recorded run.
 
 ## Before committing
 
@@ -54,13 +59,14 @@ also how `--check` knows when outputs are stale.
 
 | Problem | Draft | Final |
 | --- | --- | --- |
-| never run, or an input changed since the run (it names the files) | warns | blocks |
+| no recorded run | warns | blocks |
+| a recorded experiment's local input changed | blocks | blocks |
 | README without its `# E01: ...` title or `**Conclusion:**` line | blocks | blocks |
 | `RESULTS.md` or the index above out of date | blocks | blocks |
 
 The git pre-commit hook runs it, so a blocked check stops the commit. `run.json` is the record of
-one run. Editing it or `config.json` by hand leaves that record as it is; rerun the experiment to
-change either. A conclusion that disagrees with the outputs is for a reader to catch. In Claude
+one run. Use a new experiment ID to record a run with different settings. A conclusion that
+disagrees with the outputs is for a reader to catch. In Claude
 Code, `.claude/hooks/commit_check.py` adds this report, and that reminder, whenever a prompt
 mentions committing.
 
@@ -90,9 +96,8 @@ the whole log). Everything else is the experiment's own, such as `sensor` and `m
 ## Draft and final
 
 A draft can run with uncommitted changes. A final run needs its inputs committed first, so a commit
-holds exactly what it ran: commit the code, run, then commit the outputs. `run.py` will not run a
-final experiment again while its outputs are current, unless `--force`. Once a final experiment is
-done, leave it: a changed method is a new experiment with a new ID.
+holds exactly what it ran. Once an ID has recorded a run, keep its config, entry script,
+and outputs together. Use a new ID to run again with either the same inputs or changed inputs.
 
 ## What an entry script gets
 
@@ -152,6 +157,47 @@ Each row holds only what varies between rows; the experiment, its data and its m
 
 An empty `ci_low` or `ci_high` means the method gave no interval. `run.py` rejects any other
 columns or units, so every experiment's numbers compare directly.
+
+### Full covariance and model selection
+
+E03 and E04 first fit white noise + two Gauss-Markov processes + random walk with
+diagonal weights. They simulate from that fit to estimate the covariance of the
+overlapping Haar wavelet variances. Each candidate for the same axis is then
+refit with the inverse of that common covariance. The Wavelet Information
+Criterion (WIC) adds a bootstrap optimism penalty to each candidate's weighted
+residual sum of squares. The penalty comes from the cross-covariance of the
+observed and refitted wavelet variances across the bootstrap draws. Lower WIC
+indicates lower estimated prediction loss within the same axis and dataset.
+[Balamuta et al., Section II](https://arxiv.org/pdf/1603.05297)
+
+- `wic.csv` reports each candidate's objective, optimism penalty, WIC, difference
+  from the minimum, and the paired Monte Carlo standard error of that difference.
+  The standard error measures variation in the simulated penalty with the pilot
+  model and covariance held fixed.
+- `wv_cov.csv` contains the full covariance by axis and pair of wavelet scales.
+- `params.csv` reports approximate 95% Wald intervals in physical units for the
+  selected model. The intervals condition on the selected model and its active
+  parameters. Parameters on a boundary or with an unidentified correlation time
+  can have empty intervals.
+
+The MATLAB fitter uses Optimization Toolbox. The experiments use Statistics
+and Machine Learning Toolbox for intervals and Parallel Computing Toolbox for
+the configured workers. Setting `workers` to 0 runs the bootstrap serially.
+
+### Stationary gyro drift
+
+For a prediction experiment, `drift.csv` records the measured RMS and predicted standard
+deviations in degrees, empirical coverage of nominal 95% intervals as fractions, and the
+mean paired Gaussian log-score gain in nats per trial. A positive gain favors GMWM over
+the datasheet white-noise model. `drift_trials.csv` gives the signed drift and the shared
+startup bias for every trial.
+
+### Gyro bias correction
+
+`correction.csv` records endpoint angle RMSE in degrees for each estimator and
+the fractional reduction of GMWM relative to the best baseline. A positive
+reduction favors GMWM. `correction_trials.csv` gives the signed endpoint error
+for each estimator on every withheld interval.
 
 ### Parameters and units
 

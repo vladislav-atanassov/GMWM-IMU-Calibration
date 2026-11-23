@@ -1,0 +1,10 @@
+Single window 12464-18060 s, 93.27 minutes, peak within-second acceleration RMS 1.175 mg
+gx,  10 s (276 trials) RMS [deg]: startup 0.0514, white 0.0458, recent 0.0295, GMWM 0.0255
+gy,  10 s (276 trials) RMS [deg]: startup 0.0328, white 0.0317, recent 0.0201, GMWM 0.0180
+gz,  10 s (276 trials) RMS [deg]: startup 0.0309, white 0.0307, recent 0.0223, GMWM 0.0205
+gx,  60 s (79 trials) RMS [deg]: startup 0.2760, white 0.2349, recent 0.1925, GMWM 0.1510
+gy,  60 s (79 trials) RMS [deg]: startup 0.1716, white 0.1668, recent 0.1168, GMWM 0.0872
+gz,  60 s (79 trials) RMS [deg]: startup 0.1535, white 0.1519, recent 0.1354, GMWM 0.0979
+gx, 300 s (17 trials) RMS [deg]: startup 1.2570, white 1.1840, recent 1.2007, GMWM 1.0643
+gy, 300 s (17 trials) RMS [deg]: startup 0.7808, white 0.8362, recent 0.7509, GMWM 0.6632
+gz, 300 s (17 trials) RMS [deg]: startup 0.6642, white 0.7203, recent 0.7507, GMWM 0.6430

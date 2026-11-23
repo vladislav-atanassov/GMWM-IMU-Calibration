@@ -1,0 +1,6 @@
+imu_static_02, 14400-18000 s: 374400 samples at 104 Hz, 16 scales up to 630 s
+Starting parallel pool (parpool) using the 'Processes' profile ...
+Connected to parallel pool with 4 workers.
+gx: WN + GM + GM + RW, WIC 2.371e+05; runner-up WN + GM + RW, delta 125 (MC SE 0.3)
+gy: WN + GM + GM + RW, WIC 172.2; runner-up WN + GM + GM, delta 1.073 (MC SE 0.217)
+gz: WN + GM + GM + RW, WIC 1118; runner-up WN + GM + GM, delta 22.3 (MC SE 0.204)

@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-20T21:17:08+02:00",
+  "seconds": 27.5,
+  "base_commit": "0af0958faba801e49259d517c1e176b4ca6a20ba",
+  "inputs": {
+    "experiments/E07-imu02-long-window-bias-correction/config.json": "9bbc0c2e772a44ffc2c4be381925d7ae0282b9aa856a7ee2db9c6f9e17a34100",
+    "experiments/E01-imu01-haar-gmwm/out/params.csv": "329f49c0ea3254b7c99e0139747822be1b68d7466674d6399d9230d862589f37",
+    "experiments/E04-imu01-full-gmwm/out/params.csv": "41d666322bce61b79af11c7fe968c2c673c69960f14b0110855d82240c0070cc",
+    "experiments/E06-imu02-gyro-bias-correction/main.m": "b2686c4fd2b876f380d678ce609654340c4fe490dda3d05c27a34457409ec7d3",
+    "experiments/E07-imu02-long-window-bias-correction/main.m": "624ddd6d785843aa75ad223afddf80b5198418512833e90a100ef8b4ab59fc6c",
+    "experiments/lib/exp_config.m": "bb318518f202b43062ac9b1908a863b81d094b75d8df1e74f466cbf8945ae743",
+    "experiments/lib/exp_data.m": "b96f8aefde0d65d3603c0d553b6d9dd3e9b72e432cc0f12afd664ac651cd4d63",
+    "experiments/lib/exp_figure.m": "9db0f7d0d1034d80dc0058e941cb80d69977cda38ce1d7fcf8fca305854e8a0a",
+    "experiments/lib/exp_finish.m": "d9951eea22f5a0ab33c8f6003b13d3214d10f0da187ba52867b6626d9d370e75",
+    "experiments/lib/exp_gyro_wic.m": "18a757b811732ffe4d661b644773b9c65913862734b42b5d1995ff8facd5e1c4",
+    "experiments/lib/exp_path.m": "36e48a58193efdc7414b078520b993d35dcc5850e3df6246c23547e1aafffc6e",
+    "experiments/lib/exp_write.m": "44a769742e51b18cd741dc060e576e24955f64df0cbdbb307b9e1532fc042ca0",
+    "data/imu_static_02.bin": "46bd5d8e542cdb13a6303bf24e4770f7614bfc99c23e6311ab2777ec237e8498"
+  }
+}

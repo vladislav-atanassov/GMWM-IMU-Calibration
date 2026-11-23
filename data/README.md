@@ -10,6 +10,7 @@ limit. Ask the author for a copy.
 | Dataset | File | Size | SHA-256 | Recorded | Duration | Settings |
 | --- | --- | --- | --- | --- | --- | --- |
 | imu_static_01 | imu_static_01.bin | 54,154,000 B | 0654d130f12efd50e960e3fb1c021c876a47f3224b1ea98a5d4ff90737831bc0 | 2026-11-04, about 09:52 to 21:27 | 11.57 h, 135,385 blocks, 0 lost | 104 Hz, ±125 dps, ±2 g |
+| imu_static_02 | imu_static_02.bin | 37,536,400 B | 46bd5d8e542cdb13a6303bf24e4770f7614bfc99c23e6311ab2777ec237e8498 | 2026-11-20, ended about 18:10 | 8.02 h, 93,841 blocks, 0 lost | 104 Hz, ±125 dps, ±2 g |
 
 `emulated_imu.mat` is in git: the step 1 recording of the emulated IMU (see the main README).
 
@@ -34,3 +35,14 @@ What it shows, from a check of the whole log:
   Through the stable window az still creeps about 1.1 mg/h, so the accelerometer needs
   a drift term or detrending.
 - **gz bias follows temperature** at about 15 mdps/°C (r = 0.90 over the last 1.5 h).
+
+## imu_static_02
+
+- **4 to 5 h** is a quiet, contiguous window. The IMU temperature was
+  28.36 ± 0.03 °C (one standard deviation). The three-axis gyro RMS
+  within one-second bins was about 0.041 dps typically and never exceeded 0.054 dps.
+- Between 2 and 7.5 h the temperature was fairly steady. The largest motion events
+  were at 3:27:42 and 6:27:27, both with a step on the Y accelerometer. Motion bursts
+  returned in the final 16 min. All times are measured from the first logged packet.
+- Narrowband peaks persist in the quiet window. The strongest are around 17.5 Hz
+  on gx and ay, and 42 Hz on gy and az. The 34 Hz peak on gx is also visible.

@@ -1,0 +1,11 @@
+{
+  "status": "draft",
+  "method": "GMWM, Haar with full covariance and WIC",
+  "dataset": "imu_static_01",
+  "window_h": [2.8, 9.5],
+  "sensor": "gyro",
+  "max_gm_terms": 2,
+  "bootstrap": 200,
+  "seed": 1337,
+  "workers": 4
+}

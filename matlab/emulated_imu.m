@@ -35,7 +35,7 @@ end
 J = floor(log2(numel(noisy))) - 2;
 [nu2, tau, v] = haar_wvar(noisy, J);
 types = ["WN" "AR1" "AR1" "RW"];
-p = gmwm_fit(nu2, tau, v, types, gmwm_start(nu2, tau, v, types));
+p = gmwm_fit(nu2, tau, v, types);
 estimated = from_params(p, fs);
 
 names = ["white noise std", "GM 1 tc [s]", "GM 1 std", "GM 2 tc [s]", "GM 2 std", "random walk step"];

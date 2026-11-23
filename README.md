@@ -14,15 +14,25 @@ Each analysis is an experiment in [experiments/](experiments/), with its data, c
 
 ![Controller setup: TIM6 triggers DAC1 and ADC2, DMA moves samples through AXI SRAM, and blocks stream over USART3 and the ST-LINK to the PC](assets/controller-setup.excalidraw.svg)
 
-TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on the same tick, all inside the chip. Every 256 ticks the CM7 sends one 1036-byte packet over USART3, and the ST-LINK passes it to the PC as a virtual COM port. The diagram is an Excalidraw file: open it in Excalidraw to edit it.
+TIM6 ticks at 1 kHz and triggers both DAC channels and an ADC2 scan of both on the same tick, all inside the chip. Every 256 ticks the CM7 sends one 1036-byte packet over USART3, and the ST-LINK passes it to the PC as a virtual COM port.
 
 ## Steps
 
 1. **Emulated IMU.** The DAC generates a constant level and the same level with a known IMU noise model added: white noise, two Gauss-Markov processes, and a random walk, at the levels of an LSM6DS3TR-C gyro. The ADC samples both and streams them to MATLAB, where GMWM has to recover the model.
 2. **Stream the IMU.** Firmware for the XIAO that reads the LSM6DS3TR-C's raw gyro, accelerometer, and temperature and streams them to the PC over USB.
-3. **Real IMU data.** Record long, static IMU logs and fit GMWM models to the gyro and accelerometer.
-4. **Kalman calibration.** Turn the fitted model into Kalman filter noise parameters and test the filter.
+3. **Real IMU data.** Record long, static IMU logs and fit GMWM models to each gyro axis. Extend the analysis to the accelerometer.
+4. **Kalman calibration.** Use the fitted noise model to track gyro bias. Start with stationary replay, then test during motion.
 5. **Compare.** Compare IMUs and calibration methods, such as GMWM against the Allan variance.
+
+## Gyro experiments
+
+The replay experiments use a noise profile fitted on `imu_static_01` and evaluate it on static windows from `imu_static_02`. E05 compares drift predictions with a datasheet white-noise model. E06 and E07 give a Kalman bias tracker intermittent zero-rate references and measure the angle error between references.
+
+![Gyro experiment workflow. E01, E02, and E04 fit the first log. The replay profile uses X from E01 and Y and Z from E04. The second log feeds a separate fit in E03 and the replay tests in E05 through E07.](assets/gyro-experiments.excalidraw.svg)
+
+The SVG contains the editable Excalidraw scene.
+
+GMWM improved the drift prediction score in 11 of 12 axis–horizon comparisons. The Kalman bias tracker reduced endpoint angle RMSE versus the best baseline in 6 of 9 comparisons in E06 and 9 of 9 in E07. [Results and figures](RESULTS.md#e05-stationary-gyro-drift-on-imu_static_02-4-to-5-h) · [Experiment runner](experiments/README.md#run)
 
 ## Repository layout
 
@@ -183,6 +193,6 @@ The experiment settings (sample rate, signal, noise processes, seed) are in `fir
 
 ## Code style
 
-The pre-commit hook also runs `python experiments/run.py --check`. That blocks a commit when a final experiment's outputs do not follow from its config, code or data, an experiment README lacks its title or conclusion, or `RESULTS.md` needs rebuilding (see [experiments/README.md](experiments/README.md#before-committing)).
+The pre-commit hook also runs `python experiments/run.py --check`. That blocks a commit when a recorded experiment's config or entry script has changed, an experiment README lacks its title or conclusion, or `RESULTS.md` needs rebuilding (see [experiments/README.md](experiments/README.md#before-committing)).
 
 `.clang-format` applies to the hand-written code only (`CM7/App/`, `firmware/common/`, and the XIAO's `src/` and `include/`), so the CubeMX code stays as generated. With the hook on, a commit that stages unformatted files there is rejected, and the hook prints the command that fixes them. If clang-format is not on your PATH, point the hook at it with `git config hooks.clangFormat <path-to-clang-format>`.

@@ -2,7 +2,7 @@
 """Run an experiment, or rebuild the results pages from the experiments' outputs.
 
     python experiments/run.py E01             run one experiment (its ID or full folder name)
-    python experiments/run.py --all           run every experiment
+    python experiments/run.py --all           run every experiment without saved outputs
     python experiments/run.py --report        only rebuild RESULTS.md and the index in experiments/README.md
     python experiments/run.py --check         is everything ready to commit? (the pre-commit hook runs this)
 
@@ -25,6 +25,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import uuid
 from pathlib import Path
 
 EXPERIMENTS = Path(__file__).resolve().parent
@@ -47,6 +48,15 @@ COLUMNS = {
     "params.csv": ["sensor", "axis", "term", "parameter", "value", "unit", "ci_low", "ci_high"],
     "wv.csv": ["sensor", "axis", "scale_s", "nu2", "ci_low", "ci_high", "nu2_model"],
     "fit.csv": ["sensor", "axis", "objective", "scales", "seconds"],
+    "wic.csv": ["sensor", "axis", "model", "objective", "optimism", "wic", "delta_wic", "delta_mc_se"],
+    "wv_cov.csv": ["sensor", "axis", "scale_s", "scale2_s", "covariance"],
+    "drift.csv": ["sensor", "axis", "horizon_s", "trials", "observed_rms_deg", "datasheet_sd_deg",
+                  "gmwm_sd_deg", "datasheet_coverage", "gmwm_coverage", "gmwm_log_score_gain"],
+    "drift_trials.csv": ["sensor", "axis", "horizon_s", "bias_start_s", "startup_bias_dps", "drift_deg"],
+    "correction.csv": ["sensor", "axis", "horizon_s", "trials", "startup_rmse_deg", "white_rmse_deg",
+                       "recent_rmse_deg", "gmwm_rmse_deg", "best_baseline", "gmwm_reduction_vs_best"],
+    "correction_trials.csv": ["sensor", "axis", "horizon_s", "score_start_s", "startup_error_deg",
+                              "white_error_deg", "recent_error_deg", "gmwm_error_deg"],
 }
 # One unit per quantity and sensor, so results compare without conversions (see experiments/README.md)
 UNITS = {
@@ -331,16 +341,11 @@ def inputs(exp: Path) -> dict:
     return found
 
 
-def stale_reasons(exp: Path) -> list[str]:
-    """Why the outputs in out/ do not follow from the experiment's inputs; empty when they do."""
-    info = _run_info(exp)
-    if info is None:
-        return ["never run"]
-    if "inputs" not in info:
-        return ["run.json has no inputs"]
+def input_changes(exp: Path, info: dict) -> list[str]:
+    """Paths whose checked-out contents differ from the recorded run's inputs."""
+    recorded = info.get("inputs", {})
     now = inputs(exp)
-    changed = sorted(p for p in set(now) | set(info["inputs"]) if now.get(p) != info["inputs"].get(p))
-    return [f"changed since the run: {', '.join(changed)}"] if changed else []
+    return sorted(p for p in set(now) | set(recorded) if now.get(p) != recorded.get(p))
 
 
 # ---- Running ----
@@ -358,8 +363,8 @@ def all_experiments() -> list[Path]:
 
 def check_outputs(out: Path):
     """Every output has the agreed columns and units, so the report can compare it with the others."""
-    if not (out / "params.csv").is_file():
-        raise ExperimentError("the run wrote no params.csv")
+    if not any((out / name).is_file() for name in ("params.csv", "drift.csv", "correction.csv")):
+        raise ExperimentError("the run wrote no params.csv, drift.csv, or correction.csv")
     for name, columns in COLUMNS.items():
         path = out / name
         if not path.is_file():
@@ -380,7 +385,11 @@ def check_outputs(out: Path):
                                       f"expected {units.get(r['parameter'])!r}")
 
 
-def run(exp: Path, force: bool):
+def run(exp: Path):
+    out = exp / "out"
+    if out.exists():
+        raise ExperimentError(f"{_rel(out)} already exists. Use a new experiment ID for another run.")
+
     cfg = _config(exp)
     if cfg.get("status") not in ("draft", "final"):
         raise ExperimentError("config.json status must be draft or final")
@@ -391,14 +400,11 @@ def run(exp: Path, force: bool):
     entry = entries[0]
 
     used = inputs(exp)
-    out = exp / "out"
     if final:
         local = [p for p in used if not p.startswith("data/")]
         if _git("status", "--porcelain", "--", *local):
             raise ExperimentError("a final run needs its config and code committed, so a commit holds exactly "
                                   "what it ran; commit them first")
-        if not force and not stale_reasons(exp):
-            raise ExperimentError(f"{_rel(out)} already holds this final run; --force runs it again")
 
     head_path = prepare_data(cfg)
     if entry == "main.R":
@@ -406,9 +412,11 @@ def run(exp: Path, force: bool):
             if (path / "DESCRIPTION").is_file():
                 prepare_r_package(path)
 
-    stage = exp / "out.tmp"
-    if stage.exists():
-        shutil.rmtree(stage)  # left by a run that failed
+    stage_root = exp / "out.tmp"
+    stage_root.mkdir(exist_ok=True)
+    # The published directory keeps its staging permissions. Inherit the
+    # workspace ACL rather than using a private temporary directory.
+    stage = stage_root / uuid.uuid4().hex
     stage.mkdir()
     env = {**os.environ, "EXP_ID": _exp_id(exp), "EXP_ROOT": str(ROOT),
            "EXP_CONFIG": str(exp / "config.json"), "EXP_DATA": str(head_path), "EXP_OUT": str(stage)}
@@ -437,9 +445,12 @@ def run(exp: Path, force: bool):
     }
     (stage / "run.json").write_text(json.dumps(run_info, indent=2) + "\n", encoding="utf-8", newline="\n")
 
-    if out.exists():
-        shutil.rmtree(out)  # git keeps the outputs of earlier runs
-    stage.rename(out)
+    try:
+        stage.rename(out)
+    except OSError as e:
+        if out.exists():
+            raise ExperimentError(f"{_rel(out)} appeared during this run. Use a new experiment ID.") from e
+        raise
     print(f"[+] {exp.name}: done in {seconds:.0f} s, outputs in {_rel(out)}/")
 
 
@@ -481,14 +492,29 @@ def build_report() -> tuple[str, str]:
     runs = []
     for exp in all_experiments():
         cfg, info = _config(exp), _run_info(exp)
-        current = info is not None and not stale_reasons(exp)
+        current = info is not None and not input_changes(exp, info)
         runs.append((exp, cfg, info, current, _read_csv(exp / "out/params.csv"), _read_csv(exp / "out/fit.csv")))
 
     # Index
     rows = ["| ID | Experiment | Data | Status | Last run | Conclusion |", "| --- | --- | --- | --- | --- | --- |"]
     for exp, cfg, info, current, _, _ in runs:
         title, conclusion = _readme_facts(exp)
-        last = f"{info['date'][:10]}, {'current' if current else 'stale'}" if info else "not run"
+        last = f"{info['date'][:10]}, {'current' if current else 'historical inputs'}" if info else "not run"
+        wic = _read_csv(exp / "out/wic.csv")
+        if wic:
+            winners = {axis: choices[0]["model"] for axis, choices in _wic_rankings(wic).items()}
+            if len(set(winners.values())) == 1:
+                conclusion = f"WIC selected {next(iter(winners.values()))} on every axis."
+            else:
+                conclusion = "WIC selections by axis are in RESULTS.md."
+        drift = _read_csv(exp / "out/drift.csv")
+        if drift:
+            wins = sum(float(r["gmwm_log_score_gain"]) > 0 for r in drift)
+            conclusion = f"GMWM improved the drift prediction score in {wins} of {len(drift)} axis–horizon comparisons."
+        correction = _read_csv(exp / "out/correction.csv")
+        if correction:
+            wins = sum(float(r["gmwm_reduction_vs_best"]) > 0 for r in correction)
+            conclusion = f"GMWM beat every baseline in {wins} of {len(correction)} axis–horizon comparisons."
         rows.append(f"| [{_exp_id(exp)}]({exp.name}/) | {title} | {cfg['dataset']}, {_window(cfg)} | {cfg['status']} "
                     f"| {last} | {conclusion} |")
     text = INDEX.read_text(encoding="utf-8")
@@ -513,7 +539,7 @@ def build_report() -> tuple[str, str]:
         for exp in exps:
             c = cols[exp]
             note = "" if c["cfg"]["status"] == "final" and c["current"] else \
-                " (stale)" if not c["current"] else " (draft)"
+                " (historical inputs)" if not c["current"] else " (draft)"
             heads.append(f"[{_exp_id(exp)}](experiments/{exp.name}/) {c['cfg'].get('method', '')}{note}")
         lines += ["| Axis | Term | Parameter | Unit | " + " | ".join(heads) + " |",
                   "| --- | --- | --- | --- | " + " | ".join("---:" for _ in exps) + " |"]
@@ -543,9 +569,76 @@ def build_report() -> tuple[str, str]:
                 lines.append(f"| {axis} | {label} | " + " | ".join(cells) + " |")
         lines.append("")
         for exp in exps:
+            wic = [r for r in _read_csv(exp / "out/wic.csv") if r["sensor"] == sensor]
+            if wic:
+                lines += [f"**{_exp_id(exp)} WIC rankings**", "",
+                          "| Axis | Selected model | WIC | Runner-up | ΔWIC | Monte Carlo SE of Δ |",
+                          "| --- | --- | ---: | --- | ---: | ---: |"]
+                for axis, choices in _wic_rankings(wic).items():
+                    best = choices[0]
+                    second = choices[1] if len(choices) > 1 else {"model": "", "delta_wic": "", "delta_mc_se": ""}
+                    lines.append(f"| {axis} | {best['model']} | {_num(best['wic'])} | {second['model']} | "
+                                 f"{_num(second['delta_wic'])} | {_num(second['delta_mc_se'])} |")
+                lines.append("")
             for png in sorted((exp / "out").glob(f"{sensor}*.png")):
                 lines += [f"**{_exp_id(exp)}:** `{png.name}`", "", f"![{exp.name} {png.stem}]({_rel(png)})", ""]
+    for exp, cfg, _, _, _, _ in runs:
+        drift = _read_csv(exp / "out/drift.csv")
+        if drift:
+            lines.extend(_drift_report(exp, cfg, drift))
+        correction = _read_csv(exp / "out/correction.csv")
+        if correction:
+            lines.extend(_correction_report(exp, cfg, correction))
     return "\n".join(lines), index
+
+
+def _wic_rankings(rows: list[dict]) -> dict:
+    axes = {}
+    for row in sorted(rows, key=lambda r: (r["axis"], float(r["wic"]))):
+        axes.setdefault(row["axis"], []).append(row)
+    return axes
+
+
+def _drift_report(exp: Path, cfg: dict, rows: list[dict]) -> list[str]:
+    lines = [f"## {_exp_id(exp)} stationary gyro drift on {cfg['dataset']}, {_window(cfg)}", "",
+             "Both profiles use the same startup bias in each trial. Positive log-score gain favors GMWM.",
+             f"[Experiment setup]({_rel(exp / 'README.md')})", "",
+             "| Axis | Horizon [s] | Trials | Observed RMS [°] | Datasheet SD [°] | GMWM SD [°] | "
+             "Datasheet 95% coverage | GMWM 95% coverage | GMWM log-score gain |",
+             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
+    for r in rows:
+        scores = [_num(r[k]) for k in ("observed_rms_deg", "datasheet_sd_deg", "gmwm_sd_deg")]
+        coverage = [f"{float(r[k]):.0%}" for k in ("datasheet_coverage", "gmwm_coverage")]
+        lines.append("| " + " | ".join([r["axis"], r["horizon_s"], r["trials"], *scores, *coverage,
+                                       _num(r["gmwm_log_score_gain"])]) + " |")
+    trial_path = exp / "out/drift_trials.csv"
+    plot_path = exp / "out/gyro_drift.png"
+    lines.append("")
+    if trial_path.is_file():
+        lines += [f"[Per-trial drift and startup bias]({_rel(trial_path)})", ""]
+    if plot_path.is_file():
+        lines += [f"![Observed and predicted gyro drift]({_rel(plot_path)})", ""]
+    return lines
+
+
+def _correction_report(exp: Path, cfg: dict, rows: list[dict]) -> list[str]:
+    lines = [f"## {_exp_id(exp)} stationary gyro bias correction on {cfg['dataset']}, {_window(cfg)}", "",
+             "Endpoint angle RMSE in degrees. Positive reduction favors GMWM over the lowest-RMSE baseline.",
+             f"[Experiment setup]({_rel(exp / 'README.md')})", "",
+             "| Axis | Horizon [s] | Trials | Startup only | All reference samples | Latest reference | "
+             "GMWM | Reduction vs. best baseline |",
+             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
+    for r in rows:
+        rms = [_num(r[f"{name}_rmse_deg"]) for name in ("startup", "white", "recent", "gmwm")]
+        reduction = f"{float(r['gmwm_reduction_vs_best']):+.1%}"
+        lines.append("| " + " | ".join([r["axis"], r["horizon_s"], r["trials"], *rms, reduction]) + " |")
+    lines.append("")
+    for name, label in (("correction_trials.csv", "Per-trial angle errors"), ("gyro_correction.png", "Gyro correction comparison")):
+        path = exp / "out" / name
+        if path.is_file():
+            prefix = "!" if path.suffix == ".png" else ""
+            lines += [f"{prefix}[{label}]({_rel(path)})", ""]
+    return lines
 
 
 def report():
@@ -557,9 +650,7 @@ def report():
 
 
 def check() -> bool:
-    """Is the working tree ready to commit? Prints what is not, and returns False when something
-    blocks: a final experiment whose outputs do not follow from its inputs, a README without
-    its title or conclusion, or results pages that need rebuilding. A stale draft only warns."""
+    """Check the run records, their experiment files, and the generated results pages."""
     errors, warnings = [], []
     for exp in all_experiments():
         title, conclusion = _readme_facts(exp)
@@ -568,9 +659,17 @@ def check() -> bool:
         if not conclusion:
             errors.append(f"{exp.name}: README.md needs a line starting with **Conclusion:**")
         final = _config(exp).get("status") == "final"
-        for reason in stale_reasons(exp):
-            (errors if final else warnings).append(f"{exp.name}: {reason}. Rerun: python experiments/run.py "
-                                                   f"{_exp_id(exp)}")
+        info = _run_info(exp)
+        if info is None:
+            (errors if final else warnings).append(f"{exp.name}: no recorded run")
+            continue
+        if "inputs" not in info:
+            errors.append(f"{exp.name}: run.json has no inputs")
+            continue
+        local = [p for p in input_changes(exp, info) if p.startswith(_rel(exp) + "/")]
+        if local:
+            errors.append(f"{exp.name}: recorded experiment files changed: {', '.join(local)}. "
+                          "Restore them and use a new experiment ID.")
 
     results, index = build_report()
     on_disk = RESULTS.read_text(encoding="utf-8") if RESULTS.is_file() else ""
@@ -592,10 +691,9 @@ def check() -> bool:
 def main():
     parser = argparse.ArgumentParser(description="Run experiments and rebuild the results pages")
     parser.add_argument("experiment", nargs="?", help="Experiment ID (E01) or folder name")
-    parser.add_argument("--all", action="store_true", help="Run every experiment")
+    parser.add_argument("--all", action="store_true", help="Run experiments without saved outputs")
     parser.add_argument("--report", action="store_true", help="Only rebuild RESULTS.md and the index")
     parser.add_argument("--check", action="store_true", help="Only check that everything is ready to commit")
-    parser.add_argument("--force", action="store_true", help="Run a final experiment again although it is current")
     args = parser.parse_args()
     if not (args.experiment or args.all or args.report or args.check):
         parser.error("name an experiment, or pass --all, --report or --check")
@@ -605,8 +703,10 @@ def main():
         sys.exit(0 if check() else 1)
     try:
         if not args.report:
-            for exp in all_experiments() if args.all else [find_experiment(args.experiment)]:
-                run(exp, args.force)
+            pending = ([e for e in all_experiments() if not (e / "out").exists()] if args.all
+                       else [find_experiment(args.experiment)])
+            for exp in pending:
+                run(exp)
         report()
     except ExperimentError as e:
         print(f"[!] {e}")

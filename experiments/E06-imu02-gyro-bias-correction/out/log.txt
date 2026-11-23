@@ -1,0 +1,9 @@
+gx,  10 s (168 trials) RMS [deg]: startup 0.0370, white 0.0372, recent 0.0269, GMWM 0.0251
+gy,  10 s (168 trials) RMS [deg]: startup 0.0228, white 0.0234, recent 0.0187, GMWM 0.0171
+gz,  10 s (168 trials) RMS [deg]: startup 0.0283, white 0.0247, recent 0.0181, GMWM 0.0176
+gx,  60 s (48 trials) RMS [deg]: startup 0.1704, white 0.1726, recent 0.1561, GMWM 0.1395
+gy,  60 s (48 trials) RMS [deg]: startup 0.1038, white 0.1072, recent 0.1068, GMWM 0.0938
+gz,  60 s (48 trials) RMS [deg]: startup 0.1402, white 0.1143, recent 0.1150, GMWM 0.1090
+gx, 300 s (10 trials) RMS [deg]: startup 0.6254, white 0.6584, recent 1.0042, GMWM 0.7060
+gy, 300 s (10 trials) RMS [deg]: startup 0.3828, white 0.4323, recent 0.6193, GMWM 0.5099
+gz, 300 s (10 trials) RMS [deg]: startup 0.5756, white 0.5120, recent 0.6969, GMWM 0.5682
